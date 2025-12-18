@@ -353,11 +353,11 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                             $final_amount_formatted = number_format($final_amount, 2, ',', ' ');
                             $quota_amount_formatted = number_format($quota_amount, 2, ',', ' ');
                             
-                            if ($monthly_interest_percentage == 0) {
-                                // No interest option
+                            if ($monthly_interest_percentage == 0 && $surcharge_percentage == 0) {
+                                // No interest and no surcharge option
                                 $text = $this->get_installment_no_interest_text($i, $quota_amount_formatted);
                             } else {
-                                // With interest option
+                                // With interest or surcharge option
                                 $text = $this->get_installment_text($i, $quota_amount_formatted, $final_amount_formatted);
                             }
                             ?>
