@@ -99,15 +99,19 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         $product_id = null;
         $product_title = '';
         $monthly_interest_percentage = 0;
+        $surcharge_percentage = 0;
         
         foreach ($items as $item => $values) {
             $_product = wc_get_product($values['data']->get_id());
             $product_title = $_product->get_title();
             $product_id = $_product->get_id();
             
-            // Get monthly interest percentage from product custom field
+            // Get financing custom fields from product
             $monthly_interest_percentage = get_post_meta($product_id, '_monthly_interest_percentage', true);
             $monthly_interest_percentage = is_numeric($monthly_interest_percentage) ? floatval($monthly_interest_percentage) : 0;
+            
+            $surcharge_percentage = get_post_meta($product_id, '_surcharge_percentage', true);
+            $surcharge_percentage = is_numeric($surcharge_percentage) ? floatval($surcharge_percentage) : 0;
         }
         
         $name = $woocommerce->customer->get_billing_last_name() . ', ' . $woocommerce->customer->get_billing_first_name();
@@ -125,16 +129,19 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             return false;
         }
         
-        // Calculate final price using compound interest formula
-        // First period has no interest, from second period onwards: amount * (1 + rate)^(t-1)
+        // Apply surcharge to base amount before calculating financing
         $order_total = (float)$order->get_total();
+        $base_amount = $order_total * (1 + $surcharge_percentage / 100);
+        
+        // Calculate final price using compound interest formula
+        // First period has no interest, from second period onwards: base_amount * (1 + rate)^(t-1)
         if ($quotas == 1 || $monthly_interest_percentage == 0) {
             // No interest for single installment or when rate is 0
-            $final_price = $order_total;
+            $final_price = $base_amount;
         } else {
-            // Compound interest: amount * (1 + rate)^(t-1)
+            // Compound interest: base_amount * (1 + rate)^(t-1)
             $rate = $monthly_interest_percentage / 100;
-            $final_price = $order_total * pow(1 + $rate, $quotas - 1);
+            $final_price = $base_amount * pow(1 + $rate, $quotas - 1);
         }
         
         $DNIoCUIL = isset($_POST['participant_id']) ? sanitize_text_field(wp_unslash($_POST['participant_id'])) : '';
@@ -289,7 +296,8 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             $product_title = '';
             $monthly_interest_percentage = 0;
             $minimum_installments_allowed = 1;
-            $maximum_installments_allowed = 12;
+            $maximum_installments_allowed = 1;
+            $surcharge_percentage = 0;
 
             $items = $woocommerce->cart->get_cart();
             foreach ($items as $item => $values) {
@@ -301,17 +309,22 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                 $monthly_interest_percentage = get_post_meta($product_id, '_monthly_interest_percentage', true);
                 $minimum_installments_allowed = get_post_meta($product_id, '_minimum_installments_allowed', true);
                 $maximum_installments_allowed = get_post_meta($product_id, '_maximum_installments_allowed', true);
+                $surcharge_percentage = get_post_meta($product_id, '_surcharge_percentage', true);
                 
                 // Set defaults if not configured
                 $monthly_interest_percentage = is_numeric($monthly_interest_percentage) ? floatval($monthly_interest_percentage) : 0;
                 $minimum_installments_allowed = is_numeric($minimum_installments_allowed) && $minimum_installments_allowed > 0 ? intval($minimum_installments_allowed) : 1;
-                $maximum_installments_allowed = is_numeric($maximum_installments_allowed) && $maximum_installments_allowed > 0 ? intval($maximum_installments_allowed) : 12;
+                $maximum_installments_allowed = is_numeric($maximum_installments_allowed) && $maximum_installments_allowed > 0 ? intval($maximum_installments_allowed) : 1;
+                $surcharge_percentage = is_numeric($surcharge_percentage) ? floatval($surcharge_percentage) : 0;
                 
                 // Ensure minimum is not greater than maximum
                 if ($minimum_installments_allowed > $maximum_installments_allowed) {
                     $minimum_installments_allowed = $maximum_installments_allowed;
                 }
             }
+            
+            // Apply surcharge to base amount before calculating financing
+            $base_amount = $amount * (1 + $surcharge_percentage / 100);
 ?>
 
             <fieldset>
@@ -325,14 +338,14 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                         // Render installment options based on product's financing configuration
                         for ($i = $minimum_installments_allowed; $i <= $maximum_installments_allowed; $i++) {
                             // Calculate interest using compound interest formula
-                            // First period has no interest, from second period onwards: amount * (1 + rate)^(t-1)
+                            // First period has no interest, from second period onwards: base_amount * (1 + rate)^(t-1)
                             if ($i == 1 || $monthly_interest_percentage == 0) {
                                 // No interest for single installment or when rate is 0
-                                $final_amount = $amount;
+                                $final_amount = $base_amount;
                             } else {
-                                // Compound interest: amount * (1 + rate)^(t-1)
+                                // Compound interest: base_amount * (1 + rate)^(t-1)
                                 $rate = $monthly_interest_percentage / 100;
-                                $final_amount = $amount * pow(1 + $rate, $i - 1);
+                                $final_amount = $base_amount * pow(1 + $rate, $i - 1);
                             }
                             
                             $quota_amount = $final_amount / $i;
