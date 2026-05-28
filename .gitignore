@@ -1,40 +1,41 @@
-# WordPress
+# OS / editor noise
 .DS_Store
-*.log
-*.tmp
-.wp-config-local.php
-
-# Development
-node_modules/
+Thumbs.db
+._*
+*.swp
+*.swo
+*~
 .vscode/
 .idea/
 *.sublime-project
 *.sublime-workspace
 
-# Dependencies
-vendor/
-composer.lock
+# Logs
+*.log
+*.tmp
 
-# Build
+# Local WP config
+.wp-config-local.php
+
+# Dependencies (rebuilt by CI on release; never committed)
+vendor/
+node_modules/
+
+# Build output (rebuilt by CI on release; never committed)
+build/
+
+# Tooling caches
+.phpunit.result.cache
+
+# Local dev env state
+.wp-env/
+.wp-env.override.json
+.env
+.env.local
+
+# Archives
 *.zip
 *.tar.gz
 
-# OS Files
-.DS_Store
-Thumbs.db
-._*
-
-# IDE
-*.swp
-*.swo
-*~
-
-# Languages 
-# Note: .mo files are needed and should be included in the repository
-# .po files are source files for translators
-
-# Only ignore generated .mo files that would be created in production
-# Keep the .mo files created by developers in the repo
-
-# Exclude but keep directory
+# Keep empty dirs via .gitkeep
 !.gitkeep

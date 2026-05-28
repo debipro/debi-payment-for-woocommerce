@@ -1,0 +1,44 @@
+{
+    "customer": {
+        "user_login": "customer",
+        "user_email": "customer@example.test",
+        "user_pass": "password",
+        "first_name": "Test",
+        "last_name": "Customer",
+        "role": "customer"
+    },
+    "subsites": [
+        { "slug": "shop-one", "title": "Shop One" },
+        { "slug": "shop-two", "title": "Shop Two" }
+    ],
+    "products": [
+        {
+            "sku": "DEBI-DEMO-001",
+            "name": "Demo Product One",
+            "price": 1000,
+            "stock": 100,
+            "description": "Sample product used by the Debi workbench seeder."
+        },
+        {
+            "sku": "DEBI-DEMO-002",
+            "name": "Demo Product Two",
+            "price": 2500,
+            "stock": 50,
+            "description": "Sample product used by the Debi workbench seeder."
+        },
+        {
+            "sku": "DEBI-DEMO-003",
+            "name": "Demo Product Three",
+            "price": 7500,
+            "stock": 25,
+            "description": "Sample product used by the Debi workbench seeder."
+        }
+    ],
+    "gateway": {
+        "gateway_id": "debi",
+        "enabled": "yes",
+        "title": "Debi (sandbox)",
+        "description": "Pay with Debi. Sandbox mode is enabled; no real charges are made.",
+        "testmode": "yes"
+    }
+}
