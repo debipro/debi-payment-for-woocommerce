@@ -26,7 +26,7 @@ directory](https://wordpress.org/plugins/).
 ## Quick start (single-site, the daily driver)
 
 ```bash
-git clone https://github.com/tucuota/debi-payment-for-woocommerce.git
+git clone https://github.com/debipro/debi-payment-for-woocommerce.git
 cd debi-payment-for-woocommerce
 git checkout refactor
 

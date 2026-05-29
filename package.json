@@ -4,10 +4,10 @@
     "description": "Official Debi payment gateway integration for WooCommerce.",
     "private": true,
     "license": "GPL-2.0-or-later",
-    "homepage": "https://github.com/tucuota/debi-payment-for-woocommerce",
+    "homepage": "https://github.com/debipro/debi-payment-for-woocommerce",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/tucuota/debi-payment-for-woocommerce.git"
+        "url": "git+https://github.com/debipro/debi-payment-for-woocommerce.git"
     },
     "scripts": {
         "start": "rm -f .wp-env.override.json && wp-env start",

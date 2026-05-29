@@ -1,9 +1,9 @@
 {
-    "name": "tucuota/debi-payment-for-woocommerce",
+    "name": "debipro/debi-payment-for-woocommerce",
     "description": "Official Debi payment gateway integration for WooCommerce.",
     "type": "wordpress-plugin",
     "license": "GPL-2.0-or-later",
-    "homepage": "https://github.com/tucuota/debi-payment-for-woocommerce",
+    "homepage": "https://github.com/debipro/debi-payment-for-woocommerce",
     "authors": [
         {
             "name": "Fernando del Peral",
