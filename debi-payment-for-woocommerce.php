@@ -23,7 +23,7 @@
  * Text Domain:       debi-payment-for-woocommerce
  * Domain Path:       /languages/
  * Requires at least: 5.6
- * Requires PHP:      7.0
+ * Requires PHP:      8.1
  * Requires Plugins:  woocommerce
  * WC requires at least: 3.0
  * WC tested up to:   9.1

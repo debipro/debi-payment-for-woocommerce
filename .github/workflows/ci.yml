@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: ["7.4", "8.1"]
+        php: ["8.1", "8.2", "8.3"]
     # The current suite is bootstrap-only smoke tests; nothing here actually
     # boots WordPress. Once the rewrite ships real integration tests via
     # wp-env's tests-cli runner, reintroduce a `mode: [single, multisite]`
