@@ -1,0 +1,31 @@
+{
+    "name": "debi-payment-for-woocommerce",
+    "version": "1.1.0",
+    "description": "Official Debi payment gateway integration for WooCommerce.",
+    "private": true,
+    "license": "GPL-2.0-or-later",
+    "homepage": "https://github.com/debipro/debi-payment-for-woocommerce",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/debipro/debi-payment-for-woocommerce.git"
+    },
+    "scripts": {
+        "start": "rm -f .wp-env.override.json && wp-env start",
+        "stop": "wp-env stop && rm -f .wp-env.override.json",
+        "reset": "rm -f .wp-env.override.json && wp-env destroy && wp-env start",
+        "start:multisite": "cp .wp-env.multisite.json .wp-env.override.json && wp-env start",
+        "stop:multisite": "wp-env stop && rm -f .wp-env.override.json",
+        "reset:multisite": "cp .wp-env.multisite.json .wp-env.override.json && wp-env destroy && wp-env start",
+        "seed": "wp-env run cli wp eval-file wp-content/plugins/debi-payment-for-woocommerce/bin/seed.php",
+        "shell": "wp-env run cli bash",
+        "lint": "composer lint",
+        "lint:fix": "composer lint:fix",
+        "test": "wp-env run tests-cli --env-cwd=wp-content/plugins/debi-payment-for-woocommerce composer test",
+        "build": "wp-scripts build"
+    },
+    "devDependencies": {
+        "@wordpress/env": "^10.0.0",
+        "@wordpress/scripts": "^28.0.0"
+    },
+    "dependencies": {}
+}

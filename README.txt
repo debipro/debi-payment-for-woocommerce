@@ -4,7 +4,7 @@ Tags: payment, gateway, debit, installments, subscriptions
 Requires at least: 5.6
 Tested up to: 6.8
 Stable tag: 1.1.0
-Requires PHP: 7.0
+Requires PHP: 8.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,7 +35,7 @@ Debi Payment for WooCommerce is the official payment gateway integration for Deb
 = Requirements =
 
 * WordPress 5.6 or higher
-* PHP 7.0 or higher
+* PHP 8.1 or higher
 * WooCommerce 3.0 or higher
 
 == Installation ==

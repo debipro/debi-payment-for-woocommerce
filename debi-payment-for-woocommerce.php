@@ -13,17 +13,17 @@
  *
  * @wordpress-plugin
  * Plugin Name:       Debi Payment for WooCommerce
- * Plugin URI:        https://github.com/tucuota/debi-payment-for-woocommerce
+ * Plugin URI:        https://github.com/debipro/debi-payment-for-woocommerce
  * Description:       Official Debi payment gateway integration for WooCommerce. Accept credit cards with installments and automatic debit payments.
  * Version:           1.1.0
  * Author:            Fernando del Peral
- * Author URI:        https://github.com/tucuota
+ * Author URI:        https://github.com/debipro
  * License:           GPL-2.0+
  * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
  * Text Domain:       debi-payment-for-woocommerce
  * Domain Path:       /languages/
  * Requires at least: 5.6
- * Requires PHP:      7.0
+ * Requires PHP:      8.1
  * Requires Plugins:  woocommerce
  * WC requires at least: 3.0
  * WC tested up to:   9.1

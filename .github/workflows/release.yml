@@ -1,0 +1,94 @@
+name: Release
+
+# Intentionally manual-only during the refactor phase. Once the plugin code is
+# rewritten and you are ready to re-submit to WordPress.org, switch the trigger
+# to:
+#
+#   on:
+#     push:
+#       tags: ["v*"]
+#
+# and add the WP_ORG_SVN_USERNAME / WP_ORG_SVN_PASSWORD secrets in the repo
+# settings.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to release (tag or commit). Leave empty to use HEAD."
+        required: false
+        default: ""
+
+jobs:
+  release:
+    name: Build & publish to WP.org + GitHub Releases
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "7.4"
+          coverage: none
+          tools: composer:v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install PHP production dependencies
+        run: composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Build JS assets
+        run: |
+          if [ -f src/index.js ] || [ -f src/index.jsx ] || [ -f src/index.ts ]; then
+            npm run build
+          else
+            echo "No JS source detected; skipping build step."
+          fi
+
+      - name: Derive version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION=$(php -r '$h = file_get_contents("debi-payment-for-woocommerce.php"); preg_match("/Version:\s*([0-9.]+)/", $h, $m); echo $m[1] ?? "0.0.0";')
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Derived version: ${VERSION}"
+
+      - name: Deploy to WordPress.org SVN
+        uses: 10up/action-wordpress-plugin-deploy@stable
+        env:
+          SVN_USERNAME: ${{ secrets.WP_ORG_SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.WP_ORG_SVN_PASSWORD }}
+          SLUG: debi-payment-for-woocommerce
+          VERSION: ${{ steps.version.outputs.version }}
+        continue-on-error: true
+
+      - name: Build distributable ZIP
+        run: |
+          mkdir -p /tmp/dist
+          rsync -av --delete \
+            --exclude-from=.distignore \
+            ./ /tmp/dist/debi-payment-for-woocommerce/
+          (cd /tmp/dist && zip -r "/tmp/debi-payment-for-woocommerce-${{ steps.version.outputs.version }}.zip" debi-payment-for-woocommerce)
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          generate_release_notes: true
+          files: /tmp/debi-payment-for-woocommerce-${{ steps.version.outputs.version }}.zip
