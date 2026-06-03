@@ -6,8 +6,8 @@
     "homepage": "https://github.com/debipro/debi-payment-for-woocommerce",
     "authors": [
         {
-            "name": "Fernando del Peral",
-            "homepage": "https://github.com/fernandodelperal"
+            "name": "DEBI",
+            "homepage": "https://github.com/debipro"
         }
     ],
     "require": {
