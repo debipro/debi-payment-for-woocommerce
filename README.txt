@@ -28,7 +28,7 @@ Debi Payment for WooCommerce is the official payment gateway integration for Deb
 = How It Works =
 
 1. Install and activate the plugin
-2. Configure your Debi API credentials (live and sandbox)
+2. Configure your Debi API keys (a single secret + publishable pair; the environment is inferred from the key prefix)
 3. Set up your desired installment plans with interest rates
 4. Customers can now select from your configured payment plans during checkout
 
@@ -63,25 +63,27 @@ Debi Payment for WooCommerce is the official payment gateway integration for Deb
 1. Go to WooCommerce → Settings → Payments
 2. Find "Debi" and click "Manage"
 3. Enable the payment method
-4. Enter your Debi API credentials:
-   * Live Token
-   * Sandbox Token
-5. Configure installment plans and interest rates (0-12 installments)
-6. Choose to enable/disable sandbox mode
+4. Enter your Debi API keys (a single pair):
+   * Secret key (sk_test_... for sandbox, sk_live_... for production)
+   * Publishable key (pk_test_... / pk_live_...)
+   The environment is inferred from the prefix — there is no separate "sandbox mode" switch.
+   Both keys must belong to the same environment.
+5. Use the "Test connection" button to confirm the secret key is valid and see whether it is TEST or PRODUCTION
+6. Configure installment plans and interest rates (0-12 installments)
 7. Save changes
 
-= Getting Your API Credentials =
+= Getting Your API Keys =
 
 Production:
 1. Sign up at https://debi.pro/register for production
 2. Navigate to the Developer section https://debi.pro/dashboard/developers
-3. Copy your API token (secret key) and paste it in the plugin settings
+3. Copy your secret key (sk_live_...) and publishable key (pk_live_...) and paste them in the plugin settings
 4. Save changes
 
 Sandbox:
 1. Sign up at https://debi-test.pro/register for sandbox
 2. Navigate to the Developer section https://debi-test.pro/dashboard/developers
-3. Copy your API token (secret key) and paste it in the plugin settings
+3. Copy your secret key (sk_test_...) and publishable key (pk_test_...) and paste them in the plugin settings
 4. Save changes
 
 == Frequently Asked Questions ==
@@ -108,7 +110,7 @@ Refunds should be handled through your Debi dashboard or by contacting Debi supp
 
 = Can I test before going live? =
 
-Yes, the plugin includes a sandbox mode for testing with test credentials.
+Yes. Use sandbox keys (sk_test_... / pk_test_...) to test, then switch to live keys (sk_live_... / pk_live_...) to go live. The environment is inferred from the key prefix.
 
 = Can I translate the plugin to my language? =
 

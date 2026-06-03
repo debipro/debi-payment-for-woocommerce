@@ -34,9 +34,24 @@ if (!defined('WPINC')) {
 	die;
 }
 
+if (!defined('DEBIPRO_PLUGIN_FILE')) {
+	define('DEBIPRO_PLUGIN_FILE', __FILE__);
+}
+if (!defined('DEBIPRO_PLUGIN_URL')) {
+	define('DEBIPRO_PLUGIN_URL', plugin_dir_url(__FILE__));
+}
+if (!defined('DEBIPRO_PLUGIN_VERSION')) {
+	define('DEBIPRO_PLUGIN_VERSION', '1.1.0');
+}
+
 // Load API client class
 if (!class_exists('DEBIPRO_debi')) {
 	require_once plugin_dir_path(__FILE__) . 'debi.php';
+}
+
+// Load the dependency-free key helpers (used by the gateway + admin validation).
+if (!class_exists('DEBIPRO_Keys')) {
+	require_once plugin_dir_path(__FILE__) . 'includes/class-debipro-keys.php';
 }
 
 // Map es_AR to es_ES for translations
@@ -66,6 +81,12 @@ if (debipro_is_woocommerce_active()) {
 	add_action('plugins_loaded', 'debipro_init_payment_gateway', 10);
 	function debipro_init_payment_gateway() {
 		require_once plugin_dir_path(__FILE__) . 'class-wc-debi.php';
+
+		// Registered here (not in the gateway constructor) so the AJAX test and
+		// the settings-screen asset are available even when WooCommerce hasn't
+		// instantiated the gateway for the current request.
+		add_action('wp_ajax_debipro_test_connection', array('DEBIPRO_Payment_Gateway', 'ajax_test_connection'));
+		add_action('admin_enqueue_scripts', array('DEBIPRO_Payment_Gateway', 'enqueue_admin_assets'));
 	}
 
 }

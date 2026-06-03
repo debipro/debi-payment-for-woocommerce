@@ -56,7 +56,25 @@ Useful commands:
 | `npm run shell` | Drop into a bash shell inside the WP container |
 | `npm run lint` | Run PHPCS against `bin/` and `tests/` |
 | `npm run lint:fix` | Auto-fix what PHPCBF can |
-| `npm test` | Run the PHPUnit smoke suite |
+| `npm test` | Run the PHPUnit unit suite on the host (Brain Monkey, no WordPress) |
+| `npm run test:integration` | Run the suite inside the wp-env `tests-cli` container (for future WP/WC integration tests) |
+
+## Testing
+
+Two layers, kept deliberately separate so each runs against the right toolchain:
+
+- **Unit tests** (`tests/unit/`, Brain Monkey) do **not** boot WordPress. Run them
+  on the host with the project's pinned PHPUnit — this is what `npm test`
+  (`composer test`) and CI do. No Docker required, fast and deterministic.
+- **Integration tests** (real WP/WC, when they land) belong inside the wp-env
+  `tests-cli` container via `npm run test:integration`.
+
+> [!IMPORTANT]
+> Don't run the unit suite through `tests-cli`: that container ships its own
+> global PHPUnit (for the WordPress core test framework), which shadows the
+> plugin's pinned PHPUnit 9.6 and fails on the 9.6-style `phpunit.xml.dist`
+> (`Call to undefined method PHPUnit\Framework\TestSuite::empty()`). Always let
+> the unit suite use the vendored binary via `composer test`.
 
 ## Multisite profile
 
