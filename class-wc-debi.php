@@ -78,6 +78,20 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                 'description' => __('Generate token in developer section of debi-test.pro', 'debi-payment-for-woocommerce'),
 
             ),
+            'publishable_key_live' => array(
+                'title' => __('Publishable Key Live', 'debi-payment-for-woocommerce'),
+                'type' => 'text',
+                'css' => 'width:500px;',
+                'default' => '',
+                'description' => __('Public key (pk_live_...) used by the front-end Debi Elements SDK to tokenize cards. Safe to expose in the browser.', 'debi-payment-for-woocommerce'),
+            ),
+            'publishable_key_sandbox' => array(
+                'title' => __('Publishable Key Sandbox', 'debi-payment-for-woocommerce'),
+                'type' => 'text',
+                'css' => 'width:500px;',
+                'default' => '',
+                'description' => __('Public key (pk_test_...) used by the front-end Debi Elements SDK in sandbox mode.', 'debi-payment-for-woocommerce'),
+            ),
         );
     }
 
