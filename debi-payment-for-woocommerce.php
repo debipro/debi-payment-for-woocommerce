@@ -34,6 +34,16 @@ if (!defined('WPINC')) {
 	die;
 }
 
+add_action(
+	'before_woocommerce_init',
+	function () {
+		if ( class_exists( \Automattic\WooCommerce\Utilities\FeaturesUtil::class ) ) {
+			\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', __FILE__, true );
+			\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'cart_checkout_blocks', __FILE__, true );
+		}
+	}
+);
+
 // Load API client class
 if (!class_exists('DEBIPRO_debi')) {
 	require_once plugin_dir_path(__FILE__) . 'debi.php';
@@ -56,29 +66,16 @@ function debipro_load_textdomain() {
 	load_textdomain('debi-payment-for-woocommerce', $mofile);
 }
 
-if (debipro_is_woocommerce_active()) {
-	add_filter('woocommerce_payment_gateways', 'debipro_add_payment_gateway');
-	function debipro_add_payment_gateway($gateways) {
-		$gateways[] = 'DEBIPRO_Payment_Gateway';
-		return $gateways;
+add_action('plugins_loaded', 'debipro_init_payment_gateway', 11);
+function debipro_init_payment_gateway() {
+	if ( ! class_exists( 'WC_Payment_Gateway' ) ) {
+		return;
 	}
-
-	add_action('plugins_loaded', 'debipro_init_payment_gateway', 10);
-	function debipro_init_payment_gateway() {
-		require_once plugin_dir_path(__FILE__) . 'class-wc-debi.php';
-	}
-
+	require_once plugin_dir_path( __FILE__ ) . 'class-wc-debi.php';
+	add_filter( 'woocommerce_payment_gateways', 'debipro_add_payment_gateway' );
 }
 
-/**
- * @return bool
- */
-function debipro_is_woocommerce_active() {
-	$active_plugins = (array) get_option('active_plugins', array());
-
-	if (is_multisite()) {
-		$active_plugins = array_merge($active_plugins, get_site_option('active_sitewide_plugins', array()));
-	}
-
-	return in_array('woocommerce/woocommerce.php', $active_plugins) || array_key_exists('woocommerce/woocommerce.php', $active_plugins);
+function debipro_add_payment_gateway($gateways) {
+	$gateways[] = 'DEBIPRO_Payment_Gateway';
+	return $gateways;
 }
