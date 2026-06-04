@@ -22,9 +22,9 @@
         "brain/monkey": "^2.6"
     },
     "scripts": {
-        "lint": "phpcs",
-        "lint:fix": "phpcbf",
-        "test": "phpunit"
+        "lint": "@php vendor/bin/phpcs",
+        "lint:fix": "@php vendor/bin/phpcbf",
+        "test": "@php vendor/bin/phpunit"
     },
     "config": {
         "allow-plugins": {

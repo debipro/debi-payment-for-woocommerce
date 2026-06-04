@@ -20,7 +20,8 @@
         "shell": "wp-env run cli bash",
         "lint": "composer lint",
         "lint:fix": "composer lint:fix",
-        "test": "wp-env run tests-cli --env-cwd=wp-content/plugins/debi-payment-for-woocommerce composer test",
+        "test": "composer test",
+        "test:integration": "wp-env run tests-cli --env-cwd=wp-content/plugins/debi-payment-for-woocommerce composer test",
         "build": "wp-scripts build"
     },
     "devDependencies": {

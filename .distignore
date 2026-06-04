@@ -51,3 +51,9 @@ node_modules
 README.md
 CHANGELOG.md
 CONTRIBUTING.md
+
+# AI agent tooling (dev-only, never ships to end users)
+.claude
+.cursor
+AGENTS.md
+CLAUDE.md
