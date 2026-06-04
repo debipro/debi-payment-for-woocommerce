@@ -2,11 +2,12 @@
 <ruleset name="Debi Payment for WooCommerce">
     <description>WordPress + PHPCompatibility rules for the Debi WooCommerce gateway.</description>
 
-    <!-- Scan only the new infrastructure files in this phase. -->
-    <!-- The legacy *.php files at the repo root will be rewritten in a follow-up -->
-    <!-- and are explicitly excluded below. -->
+    <!-- Scan the PSR-4 domain layer (includes/) plus the tooling/tests. -->
+    <!-- The legacy view-heavy gateway files at the repo root are rewritten -->
+    <!-- incrementally and are excluded below. -->
     <file>bin</file>
     <file>tests</file>
+    <file>includes</file>
 
     <!-- WordPress coding standards (core, docs, extra). -->
     <rule ref="WordPress-Extra">
@@ -26,13 +27,30 @@
         </properties>
     </rule>
 
-    <!-- Tests follow PSR-4 (PascalCase filenames) and operate on local files; -->
-    <!-- the WP file-naming and "use WP_Filesystem" sniffs do not apply here. -->
+    <!-- The PSR-4 domain layer (includes/Checkout, /Infrastructure, /Webhook) and -->
+    <!-- tests use PascalCase filenames; the WP file-naming sniff does not apply. -->
+    <!-- (includes/class-debipro-keys.php keeps the WP convention and is still checked.) -->
     <rule ref="WordPress.Files.FileName">
         <exclude-pattern>tests/*</exclude-pattern>
+        <exclude-pattern>includes/Checkout/*</exclude-pattern>
+        <exclude-pattern>includes/Infrastructure/*</exclude-pattern>
+        <exclude-pattern>includes/Webhook/*</exclude-pattern>
     </rule>
     <rule ref="WordPress.WP.AlternativeFunctions">
         <exclude-pattern>tests/*</exclude-pattern>
+    </rule>
+
+    <!-- Throwing an exception with a message variable is not screen output. -->
+    <rule ref="WordPress.Security.EscapeOutput.ExceptionNotEscaped">
+        <exclude-pattern>includes/Infrastructure/*</exclude-pattern>
+    </rule>
+
+    <!-- The domain layer calls the Debi SDK, whose service accessors are -->
+    <!-- camelCase (e.g. $client->webhookEndpoints); not our variables to rename. -->
+    <rule ref="WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase">
+        <exclude-pattern>includes/Checkout/*</exclude-pattern>
+        <exclude-pattern>includes/Infrastructure/*</exclude-pattern>
+        <exclude-pattern>includes/Webhook/*</exclude-pattern>
     </rule>
 
     <!-- Process .php files. -->
@@ -45,6 +63,8 @@
 
     <!-- Excluded paths. -->
     <exclude-pattern>*/vendor/*</exclude-pattern>
+    <!-- Vendored Debi PHP SDK: third-party source, not linted here. -->
+    <exclude-pattern>*/lib/debi-php/*</exclude-pattern>
     <exclude-pattern>*/node_modules/*</exclude-pattern>
     <exclude-pattern>*/build/*</exclude-pattern>
     <exclude-pattern>*/languages/*</exclude-pattern>

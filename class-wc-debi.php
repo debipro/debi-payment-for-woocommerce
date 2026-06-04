@@ -47,6 +47,115 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         $this->publishable_key = trim((string) $this->get_option('publishable_key'));
 
         add_action('woocommerce_update_options_payment_gateways_' . $this->id, array($this, 'process_admin_options'));
+        add_action('wp_enqueue_scripts', array($this, 'payment_scripts'));
+    }
+
+    /**
+     * Enqueue the js.debi.pro card element + tokenization script on checkout.
+     *
+     * Loaded only when the gateway is enabled and a publishable key is set, so
+     * the SDK is never pulled in on pages that don't need it.
+     *
+     * @return void
+     */
+    public function payment_scripts()
+    {
+        if (! function_exists('is_checkout')) {
+            return;
+        }
+        if (! is_checkout() && ! is_checkout_pay_page()) {
+            return;
+        }
+        if ('yes' !== $this->enabled || '' === $this->publishable_key) {
+            return;
+        }
+
+        wp_enqueue_script(
+            'debipro-checkout',
+            DEBIPRO_PLUGIN_URL . 'assets/js/checkout-element.js',
+            array('jquery'),
+            DEBIPRO_PLUGIN_VERSION,
+            true
+        );
+        wp_localize_script(
+            'debipro-checkout',
+            'debiproCheckout',
+            array(
+                'sdkUrl'         => 'https://js.debi.pro/v1/',
+                'publishableKey' => $this->publishable_key,
+                'locale'         => 'es-AR',
+                'i18n'           => array(
+                    'loadError'    => __('The card form could not be loaded. Please refresh and try again.', 'debi-payment-for-woocommerce'),
+                    'genericError' => __('The card could not be validated. Check the details and try again.', 'debi-payment-for-woocommerce'),
+                    'notReady'     => __('The card form is not ready yet.', 'debi-payment-for-woocommerce'),
+                ),
+            )
+        );
+    }
+
+    /**
+     * Read the financing configuration from the (single) product in the cart.
+     *
+     * @return array{product_id:int,product_title:string,monthly_interest:float,surcharge:float,min:int,max:int}
+     */
+    private function get_cart_financing()
+    {
+        $financing = array(
+            'product_id'       => 0,
+            'product_title'    => '',
+            'monthly_interest' => 0.0,
+            'surcharge'        => 0.0,
+            'min'              => 1,
+            'max'              => 1,
+        );
+
+        if (! function_exists('WC') || ! WC()->cart) {
+            return $financing;
+        }
+
+        foreach (WC()->cart->get_cart() as $values) {
+            $product = wc_get_product($values['data']->get_id());
+            if (! $product) {
+                continue;
+            }
+            $product_id = $product->get_id();
+
+            $monthly = get_post_meta($product_id, '_monthly_interest_percentage', true);
+            $min     = get_post_meta($product_id, '_minimum_installments_allowed', true);
+            $max     = get_post_meta($product_id, '_maximum_installments_allowed', true);
+            $surch   = get_post_meta($product_id, '_surcharge_percentage', true);
+
+            $financing['product_id']       = (int) $product_id;
+            $financing['product_title']    = (string) $product->get_title();
+            $financing['monthly_interest'] = is_numeric($monthly) ? (float) $monthly : 0.0;
+            $financing['surcharge']        = is_numeric($surch) ? (float) $surch : 0.0;
+            $financing['min']              = is_numeric($min) && $min > 0 ? (int) $min : 1;
+            $financing['max']              = is_numeric($max) && $max > 0 ? (int) $max : 1;
+
+            if ($financing['min'] > $financing['max']) {
+                $financing['min'] = $financing['max'];
+            }
+        }
+
+        return $financing;
+    }
+
+    /**
+     * Compound-interest installment price: the first period has no interest;
+     * from the second onwards the base amount grows by the monthly rate.
+     *
+     * @param float $base_amount      Order total with any surcharge already applied.
+     * @param int   $installments     Number of installments (>= 1).
+     * @param float $monthly_interest Monthly interest percentage.
+     * @return float Total financed price.
+     */
+    private static function financed_total($base_amount, $installments, $monthly_interest)
+    {
+        if ($installments <= 1 || $monthly_interest == 0.0) {
+            return $base_amount;
+        }
+        $rate = $monthly_interest / 100;
+        return $base_amount * pow(1 + $rate, $installments - 1);
     }
     public function init_form_fields()
     {
@@ -76,7 +185,195 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                 'default' => '',
                 'description' => __('Safe to expose in the browser; the checkout card element uses it (pk_test_… / pk_live_…). Must match the secret key environment.', 'debi-payment-for-woocommerce'),
             ),
+            'webhook_url' => array(
+                'title' => __('Webhook URL', 'debi-payment-for-woocommerce'),
+                'type' => 'debipro_webhook_url',
+            ),
+            'webhook_secret' => array(
+                'title' => __('Webhook signing secret', 'debi-payment-for-woocommerce'),
+                'type' => 'password',
+                'default' => '',
+                'description' => __('Paste the endpoint signing secret from your Debi developers dashboard. Used to verify that incoming webhook events were sent by Debi.', 'debi-payment-for-woocommerce'),
+            ),
         );
+    }
+
+    /**
+     * The REST URL Debi should POST webhook events to for this site.
+     *
+     * @return string
+     */
+    public static function webhook_url()
+    {
+        return rest_url('debipro/v1/webhook');
+    }
+
+    /**
+     * Render the read-only Webhook URL row so the admin can copy it into the
+     * Debi dashboard. It is a display-only field (no stored value).
+     *
+     * @param string $key  Field key.
+     * @param array  $data Field definition.
+     * @return string HTML for a settings table row.
+     */
+    public function generate_debipro_webhook_url_html($key, $data)
+    {
+        $title = isset($data['title']) ? $data['title'] : '';
+        $url   = self::webhook_url();
+
+        ob_start();
+        ?>
+        <tr valign="top">
+            <th scope="row" class="titledesc"><?php echo esc_html($title); ?></th>
+            <td class="forminp">
+                <fieldset>
+                    <input
+                        type="text"
+                        class="input-text regular-input"
+                        style="width:420px;"
+                        value="<?php echo esc_attr($url); ?>"
+                        readonly
+                        onfocus="this.select();"
+                    />
+                    <?php if (! self::is_local_site()) : ?>
+                        <p style="margin:8px 0;">
+                            <button type="button" class="button button-secondary debipro-setup-webhook"><?php esc_html_e('Set up webhook automatically', 'debi-payment-for-woocommerce'); ?></button>
+                            <span class="debipro-test-result" data-result-for="webhook" role="status" aria-live="polite"></span>
+                        </p>
+                        <p class="description">
+                            <?php esc_html_e('Uses your secret key to create the endpoint at Debi (subscription.cancelled, subscription.finished) if it does not exist yet, and fills in the signing secret below. Save changes to persist it.', 'debi-payment-for-woocommerce'); ?>
+                        </p>
+                    <?php else : ?>
+                        <p class="description">
+                            <?php
+                            printf(
+                                /* translators: 1: production dashboard link, 2: testing dashboard link. */
+                                esc_html__('This site is not publicly reachable, so automatic setup is disabled. Add this URL as a webhook endpoint (events: subscription.cancelled, subscription.finished) in your Debi dashboard — Production: %1$s · Testing: %2$s — then paste its signing secret below.', 'debi-payment-for-woocommerce'),
+                                '<a href="https://debi.pro/dashboard/developers" target="_blank" rel="noopener noreferrer">debi.pro/dashboard/developers</a>',
+                                '<a href="https://debi-test.pro/dashboard/developers" target="_blank" rel="noopener noreferrer">debi-test.pro/dashboard/developers</a>'
+                            );
+                            ?>
+                        </p>
+                    <?php endif; ?>
+                </fieldset>
+            </td>
+        </tr>
+        <?php
+        return ob_get_clean();
+    }
+
+    /**
+     * Whether this site is a local / non-internet-reachable environment, where
+     * Debi cannot deliver webhooks and automatic setup must be hidden.
+     *
+     * @return bool
+     */
+    public static function is_local_site()
+    {
+        if (function_exists('wp_get_environment_type') && 'local' === wp_get_environment_type()) {
+            return true;
+        }
+
+        $host = '';
+        if (function_exists('wp_parse_url')) {
+            $host = (string) wp_parse_url(home_url(), PHP_URL_HOST);
+        }
+        $host = strtolower($host);
+
+        if ('' === $host || 'localhost' === $host || '127.0.0.1' === $host || '::1' === $host) {
+            return true;
+        }
+        foreach (array('.local', '.test', '.localhost', '.example') as $suffix) {
+            if (substr($host, -strlen($suffix)) === $suffix) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * AJAX: create (or reuse) the Debi webhook endpoint for this site and store
+     * its signing secret. Uses whatever secret key is currently typed in the
+     * form (falling back to the saved one). Protected by a nonce and the
+     * manage_woocommerce capability.
+     *
+     * @return void
+     */
+    public static function ajax_setup_webhook()
+    {
+        check_ajax_referer('debipro_test_connection', 'nonce');
+
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error(array('message' => __('You are not allowed to do this.', 'debi-payment-for-woocommerce')), 403);
+        }
+
+        if (self::is_local_site()) {
+            wp_send_json_error(array('message' => __('Automatic setup is unavailable on local sites.', 'debi-payment-for-woocommerce')));
+        }
+
+        $secret = isset($_POST['secret']) ? trim((string) wp_unslash($_POST['secret'])) : '';
+        if ('' === $secret) {
+            $secret = self::get_gateway_setting('secret_key');
+        }
+        if ('secret' !== DEBIPRO_Keys::kind($secret)) {
+            wp_send_json_error(array('message' => __('Enter a valid secret key first (sk_test_… or sk_live_…).', 'debi-payment-for-woocommerce')));
+        }
+
+        try {
+            $result = \DebiPro\Webhook\WebhookInstaller::ensure($secret, self::webhook_url());
+        } catch (\Debi\Exception\ExceptionInterface $e) {
+            wp_send_json_error(array('message' => __('Debi rejected the request. Check the secret key and try again.', 'debi-payment-for-woocommerce')));
+        } catch (\Throwable $e) {
+            wp_send_json_error(array('message' => __('The webhook could not be set up. Please try again.', 'debi-payment-for-woocommerce')));
+        }
+
+        if ('' === $result['secret']) {
+            wp_send_json_error(array('message' => __('The endpoint exists but its signing secret was not returned. Copy it from the Debi dashboard.', 'debi-payment-for-woocommerce')));
+        }
+
+        // Persist immediately so the secret is never lost even if the admin
+        // navigates away without pressing "Save changes".
+        self::update_gateway_setting('webhook_secret', $result['secret']);
+
+        wp_send_json_success(array(
+            'secret'  => $result['secret'],
+            'created' => (bool) $result['created'],
+            'message' => $result['created']
+                ? __('Webhook created and signing secret saved.', 'debi-payment-for-woocommerce')
+                : __('Existing webhook found; signing secret saved.', 'debi-payment-for-woocommerce'),
+        ));
+    }
+
+    /**
+     * Read a single value from the gateway settings option.
+     *
+     * @param string $key
+     * @return string
+     */
+    private static function get_gateway_setting($key)
+    {
+        $settings = get_option('woocommerce_debipro_settings', array());
+        if (!is_array($settings)) {
+            return '';
+        }
+        return isset($settings[$key]) ? (string) $settings[$key] : '';
+    }
+
+    /**
+     * Persist a single value into the gateway settings option.
+     *
+     * @param string $key
+     * @param string $value
+     * @return void
+     */
+    private static function update_gateway_setting($key, $value)
+    {
+        $settings = get_option('woocommerce_debipro_settings', array());
+        if (!is_array($settings)) {
+            $settings = array();
+        }
+        $settings[$key] = $value;
+        update_option('woocommerce_debipro_settings', $settings);
     }
 
     /**
@@ -326,39 +623,74 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             return array('tested' => true, 'ok' => false, 'environment' => '', 'message' => __('The key environment could not be determined from its prefix.', 'debi-payment-for-woocommerce'));
         }
 
-        $is_sandbox = ('test' === $environment);
-
         try {
-            (new DEBIPRO_debi($key, $is_sandbox))->request($endpoint, array('method' => 'GET'));
-        } catch (DEBIPRO_debiException $e) {
-            $code = (int) $e->getCode();
-            if (401 === $code || 403 === $code) {
-                return array(
-                    'tested'      => true,
-                    'ok'          => false,
-                    'environment' => $environment,
-                    'message'     => __('Authentication failed: Debi rejected this key.', 'debi-payment-for-woocommerce'),
-                );
-            }
-            // Authenticated but the endpoint did not allow this exact request:
-            // the key itself is valid.
-            if (404 !== $code && 405 !== $code) {
-                return array(
-                    'tested'      => true,
-                    'ok'          => false,
-                    'environment' => $environment,
-                    'message'     => $e->getMessage(),
-                );
-            }
+            $status = self::probe_request($key, 'test' === $environment, $endpoint);
+        } catch (\Debi\Exception\ExceptionInterface $e) {
+            return array(
+                'tested'      => true,
+                'ok'          => false,
+                'environment' => $environment,
+                'message'     => __('Could not reach Debi to verify the key. Please try again.', 'debi-payment-for-woocommerce'),
+            );
+        }
+
+        if (401 === $status || 403 === $status) {
+            return array(
+                'tested'      => true,
+                'ok'          => false,
+                'environment' => $environment,
+                'message'     => __('Authentication failed: Debi rejected this key.', 'debi-payment-for-woocommerce'),
+            );
+        }
+
+        // A 2xx — or a 404/405, which still proves the request authenticated —
+        // means the key is valid.
+        if (($status >= 200 && $status < 300) || 404 === $status || 405 === $status) {
+            return array(
+                'tested'      => true,
+                'ok'          => true,
+                'environment' => $environment,
+                /* translators: %s is the environment label (TEST/PRODUCTION). */
+                'message'     => sprintf(__('OK — %s.', 'debi-payment-for-woocommerce'), self::env_label($environment)),
+            );
         }
 
         return array(
             'tested'      => true,
-            'ok'          => true,
+            'ok'          => false,
             'environment' => $environment,
-            /* translators: %s is the environment label (TEST/PRODUCTION). */
-            'message'     => sprintf(__('OK — %s.', 'debi-payment-for-woocommerce'), self::env_label($environment)),
+            /* translators: %d is the HTTP status code returned by Debi. */
+            'message'     => sprintf(__('Debi returned an unexpected response (HTTP %d).', 'debi-payment-for-woocommerce'), $status),
         );
+    }
+
+    /**
+     * Issue an authenticated GET against a Debi endpoint and return the HTTP
+     * status, used only to verify a key in the admin. Routes through the same
+     * WordPress HTTP transport the SDK uses.
+     *
+     * @param string $key        Secret or publishable key.
+     * @param bool   $is_sandbox Whether to target the sandbox API base.
+     * @param string $endpoint   Relative endpoint (e.g. 'customers').
+     * @return int HTTP status code.
+     * @throws \Debi\Exception\ExceptionInterface On transport failure.
+     */
+    private static function probe_request($key, $is_sandbox, $endpoint)
+    {
+        $base = $is_sandbox ? \Debi\DebiClient::DEFAULT_SANDBOX_BASE : \Debi\DebiClient::DEFAULT_API_BASE;
+        $url  = $base . '/v1/' . ltrim($endpoint, '/');
+
+        $response = (new \DebiPro\Infrastructure\Http\WpDebiHttpClient(15))->send(
+            'GET',
+            $url,
+            array(
+                'Authorization' => 'Bearer ' . $key,
+                'Accept'        => 'application/json',
+            ),
+            null
+        );
+
+        return (int) $response->status;
     }
 
     /**
@@ -400,6 +732,8 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                     'testing'       => __('Testing…', 'debi-payment-for-woocommerce'),
                     'blockedSave'   => __('Fix the Debi keys before saving.', 'debi-payment-for-woocommerce'),
                     'enterKey'      => __('Enter a key before testing.', 'debi-payment-for-woocommerce'),
+                    'webhookSetup'  => __('Setting up…', 'debi-payment-for-woocommerce'),
+                    'webhookNeedsSecret' => __('Enter your secret key first.', 'debi-payment-for-woocommerce'),
                 ),
             )
         );
@@ -407,7 +741,6 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
 
     public function process_payment($order_id)
     {
-        global $woocommerce;
         $order = wc_get_order($order_id);
 
         if (!$order) {
@@ -415,154 +748,96 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             return false;
         }
 
-        // WooCommerce payment gateways handle nonce verification automatically
-        // The nonce is verified by WooCommerce's process_payment() wrapper
-
-        $items = $woocommerce->cart->get_cart();
-
-        $product_id = null;
-        $product_title = '';
-        $monthly_interest_percentage = 0;
-        $surcharge_percentage = 0;
-        
-        foreach ($items as $item => $values) {
-            $_product = wc_get_product($values['data']->get_id());
-            $product_title = $_product->get_title();
-            $product_id = $_product->get_id();
-            
-            // Get financing custom fields from product
-            $monthly_interest_percentage = get_post_meta($product_id, '_monthly_interest_percentage', true);
-            $monthly_interest_percentage = is_numeric($monthly_interest_percentage) ? floatval($monthly_interest_percentage) : 0;
-            
-            $surcharge_percentage = get_post_meta($product_id, '_surcharge_percentage', true);
-            $surcharge_percentage = is_numeric($surcharge_percentage) ? floatval($surcharge_percentage) : 0;
+        // The card was tokenised in the browser by js.debi.pro; we only ever
+        // receive a single-use payment-method token id, never the PAN.
+        $token = isset($_POST['debipro-payment_method_token'])
+            ? sanitize_text_field(wp_unslash($_POST['debipro-payment_method_token']))
+            : '';
+        if ('' === $token) {
+            wc_add_notice(__('Please enter your card details before paying.', 'debi-payment-for-woocommerce'), 'error');
+            return false;
         }
-        
-        $name = $woocommerce->customer->get_billing_last_name() . ', ' . $woocommerce->customer->get_billing_first_name();
-        $email = $woocommerce->customer->get_billing_email();
 
-        // Single secret key; the environment is inferred from its prefix.
-        $token = $this->secret_key;
-        $is_sandbox = ('test' === DEBIPRO_Keys::environment($token));
-        
-        // Sanitize and validate input
-        $quotas = isset($_POST[$this->id . '-cuotas']) ? absint(wp_unslash($_POST[$this->id . '-cuotas'])) : 0;
-        
-        if ($quotas < 1) {
+        $installments = isset($_POST[$this->id . '-cuotas']) ? absint(wp_unslash($_POST[$this->id . '-cuotas'])) : 0;
+        if ($installments < 1) {
             wc_add_notice(__('Invalid number of installments selected.', 'debi-payment-for-woocommerce'), 'error');
             return false;
         }
-        
-        // Apply surcharge to base amount before calculating financing
-        $order_total = (float)$order->get_total();
-        $base_amount = $order_total * (1 + $surcharge_percentage / 100);
-        
-        // Calculate final price using compound interest formula
-        // First period has no interest, from second period onwards: base_amount * (1 + rate)^(t-1)
-        if ($quotas == 1 || $monthly_interest_percentage == 0) {
-            // No interest for single installment or when rate is 0
-            $final_price = $base_amount;
-        } else {
-            // Compound interest: base_amount * (1 + rate)^(t-1)
-            $rate = $monthly_interest_percentage / 100;
-            $final_price = $base_amount * pow(1 + $rate, $quotas - 1);
+
+        $financing = $this->get_cart_financing();
+
+        // Apply surcharge to the order total, then finance over the installments.
+        $base_amount        = (float) $order->get_total() * (1 + $financing['surcharge'] / 100);
+        $final_price        = self::financed_total($base_amount, $installments, $financing['monthly_interest']);
+        $installment_amount = $final_price / $installments;
+
+        $identification = isset($_POST['participant_id']) ? sanitize_text_field(wp_unslash($_POST['participant_id'])) : '';
+        $last_four      = isset($_POST['debipro-card_last_four']) ? sanitize_text_field(wp_unslash($_POST['debipro-card_last_four'])) : '';
+
+        update_post_meta($order_id, '_debipro_final_price', $final_price);
+        update_post_meta($order_id, '_debipro_installment_count', $installments);
+        update_post_meta($order_id, '_debipro_installment_amount', $installment_amount);
+        if ('' !== $last_four) {
+            update_post_meta($order_id, '_debipro_card_last_four', $last_four);
         }
-        
-        $DNIoCUIL = isset($_POST['participant_id']) ? sanitize_text_field(wp_unslash($_POST['participant_id'])) : '';
-        $number = isset($_POST[$this->id . '-payment_method_number']) ? sanitize_text_field(wp_unslash($_POST[$this->id . '-payment_method_number'])) : '';
-        
-        // Validate card number
-        if (empty($number)) {
-            wc_add_notice(__('Card number is required.', 'debi-payment-for-woocommerce'), 'error');
+
+        try {
+            $subscription_id = \DebiPro\Checkout\SubscriptionCreator::create(array(
+                'order'                => $order,
+                'payment_method_token' => $token,
+                'installments'         => $installments,
+                'installment_amount'   => $installment_amount,
+                'description'          => sprintf(
+                    'Order %d - Product %d - %s',
+                    (int) $order_id,
+                    $financing['product_id'],
+                    $financing['product_title']
+                ),
+                'customer'             => array(
+                    'name'                  => $order->get_billing_last_name() . ', ' . $order->get_billing_first_name(),
+                    'email'                 => $order->get_billing_email(),
+                    'identification_number' => $identification,
+                ),
+            ));
+        } catch (\Debi\Exception\ExceptionInterface $e) {
+            $this->log_error('Charge declined for order ' . (int) $order_id . ': ' . $e->getMessage());
+            wc_add_notice(__('The payment was declined or could not be processed. Please check your card and try again.', 'debi-payment-for-woocommerce'), 'error');
+            return false;
+        } catch (\Throwable $e) {
+            $this->log_error('Charge failed for order ' . (int) $order_id . ': ' . $e->getMessage());
+            wc_add_notice(__('We could not process the payment. Please try again in a moment.', 'debi-payment-for-woocommerce'), 'error');
             return false;
         }
-        
-        // Basic card number validation (should be numeric and have reasonable length)
-        $number = preg_replace('/\D/', '', $number);
-        if (empty($number) || strlen($number) < 13 || strlen($number) > 19) {
-            wc_add_notice(__('Invalid card number.', 'debi-payment-for-woocommerce'), 'error');
-            return false;
+
+        // Stored via the order data store (HPOS-safe): the webhook handler looks
+        // the order up by this exact meta key.
+        $order->update_meta_data('_debipro_subscription_id', $subscription_id);
+        $order->save();
+
+        // Moving to 'processing' also reduces stock; the webhook later moves it
+        // to completed (subscription.finished) or cancelled (subscription.cancelled).
+        $order->update_status('processing');
+
+        if (function_exists('WC') && WC()->cart) {
+            WC()->cart->empty_cart();
         }
 
-        update_post_meta($order_id, '_debipro_final_price', sanitize_text_field($final_price));
-        update_post_meta($order_id, '_debipro_installment_count', sanitize_text_field($quotas));
-        update_post_meta($order_id, '_debipro_installment_amount', sanitize_text_field($final_price / $quotas));
-        update_post_meta($order_id, '_debipro_card_last_four', sanitize_text_field(substr($number, -4)));
+        return array(
+            'result'   => 'success',
+            'redirect' => $this->get_return_url($order),
+        );
+    }
 
-        if (gmdate('j') >= 29) {
-            $day_of_month = 1;
-        } else {
-            $day_of_month = gmdate('j');
-        }
-
-
-        // Save customer to Debi
-        $response_customer = (new DEBIPRO_debi($token, $is_sandbox))->request('customers', [
-            'method' => 'POST',
-            'body' => [
-                'name' => $name,
-                'email' => $email,
-                'identification_number' => $DNIoCUIL,
-            ],
-        ]);
-
-        $data_customer = $response_customer['data'];
-        $customer_id = $data_customer['id'];
-
-
-        // Tokenize payment method
-        $response_payment_method = (new DEBIPRO_debi($token, $is_sandbox))->request('payment_methods', [
-            'method' => 'POST',
-            'body' => [
-                'type' => 'card',
-                'card' => [
-                    'number' => $number,
-                ]
-            ],
-        ]);
-
-        $data_payment_method = $response_payment_method['data'];
-        $payment_method_id = $data_payment_method['id'];
-
-        $request = (new DEBIPRO_debi($token, $is_sandbox))->request('subscriptions', [
-            'method' => 'POST',
-            'body' => [
-                'amount' => $final_price / $quotas,
-                'description' => 'Order ' . $order->id . ' - Product ' . $product_id . ' - ' . $product_title,
-                'payment_method_id' => $payment_method_id,
-                'interval_unit' => "monthly",
-                'interval' => 1,
-                'day_of_month' => $day_of_month,
-                'count' => $quotas,
-                'customer_id' => $customer_id,
-            ],
-        ]);
-
-        // Save subscription_id for future updates
-        $data = $request['data'];
-        $subscription_id = $data['id'];
-
-        if (empty($subscription_id)) {
-            return array(
-                'result' => 'failure',
-                'redirect' => $this->get_return_url($order),
-            );
-        } else {
-
-            if (!empty($subscription_id)) {
-                update_post_meta($order_id, '_debipro_subscription_id', sanitize_text_field($subscription_id));
-            }
-
-            // This also reduces stock (if cancelled later, it automatically increases)
-            $order->update_status('processing');
-
-            // Remove cart
-            $woocommerce->cart->empty_cart();
-            
-            return array(
-                'result' => 'success',
-                'redirect' => $this->get_return_url($order),
-            );
+    /**
+     * Log a gateway error through the WooCommerce logger when available.
+     *
+     * @param string $message
+     * @return void
+     */
+    private function log_error($message)
+    {
+        if (function_exists('wc_get_logger')) {
+            wc_get_logger()->error($message, array('source' => 'debipro'));
         }
     }
 
@@ -612,76 +887,29 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
 
     public function payment_fields()
     {
-            global $woocommerce;
-            $amount = $woocommerce->cart->total;
-
-            // Get product info and custom fields for financing
-            $product_id = null;
-            $product_title = '';
-            $monthly_interest_percentage = 0;
-            $minimum_installments_allowed = 1;
-            $maximum_installments_allowed = 1;
-            $surcharge_percentage = 0;
-
-            $items = $woocommerce->cart->get_cart();
-            foreach ($items as $item => $values) {
-                $_product = wc_get_product($values['data']->get_id());
-                $product_title = $_product->get_title();
-                $product_id = $_product->get_id();
-                
-                // Get custom fields for financing
-                $monthly_interest_percentage = get_post_meta($product_id, '_monthly_interest_percentage', true);
-                $minimum_installments_allowed = get_post_meta($product_id, '_minimum_installments_allowed', true);
-                $maximum_installments_allowed = get_post_meta($product_id, '_maximum_installments_allowed', true);
-                $surcharge_percentage = get_post_meta($product_id, '_surcharge_percentage', true);
-                
-                // Set defaults if not configured
-                $monthly_interest_percentage = is_numeric($monthly_interest_percentage) ? floatval($monthly_interest_percentage) : 0;
-                $minimum_installments_allowed = is_numeric($minimum_installments_allowed) && $minimum_installments_allowed > 0 ? intval($minimum_installments_allowed) : 1;
-                $maximum_installments_allowed = is_numeric($maximum_installments_allowed) && $maximum_installments_allowed > 0 ? intval($maximum_installments_allowed) : 1;
-                $surcharge_percentage = is_numeric($surcharge_percentage) ? floatval($surcharge_percentage) : 0;
-                
-                // Ensure minimum is not greater than maximum
-                if ($minimum_installments_allowed > $maximum_installments_allowed) {
-                    $minimum_installments_allowed = $maximum_installments_allowed;
-                }
-            }
-            
-            // Apply surcharge to base amount before calculating financing
-            $base_amount = $amount * (1 + $surcharge_percentage / 100);
+        $financing   = $this->get_cart_financing();
+        $cart_total  = (function_exists('WC') && WC()->cart) ? (float) WC()->cart->total : 0.0;
+        $base_amount = $cart_total * (1 + $financing['surcharge'] / 100);
 ?>
 
             <fieldset>
                 <?php echo wp_kses_post($this->get_description()); ?>
-                
+
                 <p>
                     <label for="<?php echo esc_attr($this->id); ?>-cuotas"><?php esc_html_e('Select number of installments', 'debi-payment-for-woocommerce'); ?><span class="required">*</span></label>
                     <select id="<?php echo esc_attr($this->id); ?>-cuotas" name="<?php echo esc_attr($this->id); ?>-cuotas">
                         <option value="" disabled selected><?php esc_html_e('Select number of installments', 'debi-payment-for-woocommerce'); ?></option>
                         <?php
-                        // Render installment options based on product's financing configuration
-                        for ($i = $minimum_installments_allowed; $i <= $maximum_installments_allowed; $i++) {
-                            // Calculate interest using compound interest formula
-                            // First period has no interest, from second period onwards: base_amount * (1 + rate)^(t-1)
-                            if ($i == 1 || $monthly_interest_percentage == 0) {
-                                // No interest for single installment or when rate is 0
-                                $final_amount = $base_amount;
-                            } else {
-                                // Compound interest: base_amount * (1 + rate)^(t-1)
-                                $rate = $monthly_interest_percentage / 100;
-                                $final_amount = $base_amount * pow(1 + $rate, $i - 1);
-                            }
-                            
+                        for ($i = $financing['min']; $i <= $financing['max']; $i++) {
+                            $final_amount = self::financed_total($base_amount, $i, $financing['monthly_interest']);
                             $quota_amount = $final_amount / $i;
-                            
+
                             $final_amount_formatted = number_format($final_amount, 2, ',', ' ');
                             $quota_amount_formatted = number_format($quota_amount, 2, ',', ' ');
-                            
-                            if ($monthly_interest_percentage == 0 && $surcharge_percentage == 0) {
-                                // No interest and no surcharge option
+
+                            if ($financing['monthly_interest'] == 0 && $financing['surcharge'] == 0) {
                                 $text = $this->get_installment_no_interest_text($i, $quota_amount_formatted);
                             } else {
-                                // With interest or surcharge option
                                 $text = $this->get_installment_text($i, $quota_amount_formatted, $final_amount_formatted);
                             }
                             ?>
@@ -693,8 +921,12 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                 </p>
 
                 <p class="form-row form-row-wide">
-                    <label for="<?php echo esc_attr($this->id); ?>-payment"><?php esc_html_e('Enter your card number', 'debi-payment-for-woocommerce'); ?> <span class="required">*</span></label>
-                    <input id="<?php echo esc_attr($this->id); ?>-payment" name="<?php echo esc_attr($this->id); ?>-payment_method_number"></input>
+                    <label><?php esc_html_e('Card', 'debi-payment-for-woocommerce'); ?> <span class="required">*</span></label>
+                    <?php // js.debi.pro mounts the secure card element here (see assets/js/checkout-element.js). ?>
+                    <div id="debipro-card-element"></div>
+                    <span id="debipro-card-errors" class="debipro-card-errors" role="alert" aria-live="polite"></span>
+                    <input type="hidden" id="debipro-payment-method-token" name="debipro-payment_method_token" value="" />
+                    <input type="hidden" id="debipro-card-last-four" name="debipro-card_last_four" value="" />
                 </p>
 
                 <div class="clear"></div>

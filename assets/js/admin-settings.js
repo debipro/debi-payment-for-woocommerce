@@ -210,4 +210,46 @@
         $btn.prop("disabled", false);
       });
   });
+
+  // "Set up webhook automatically": create (or reuse) the Debi endpoint for
+  // this site and drop the returned signing secret into its field.
+  $(document).on("click", ".debipro-setup-webhook", function () {
+    var $btn = $(this);
+    var $res = resultFor("webhook");
+    var secret = ($secret.val() || "").trim();
+
+    if (!secret || kind(secret) !== "secret") {
+      $res
+        .css("color", "#b32d2e")
+        .text(i18n.webhookNeedsSecret || "Enter your secret key first.");
+      return;
+    }
+
+    $btn.prop("disabled", true);
+    $res.css("color", "").text(i18n.webhookSetup || "Setting up…");
+
+    $.post(cfg.ajaxUrl, {
+      action: "debipro_setup_webhook",
+      nonce: cfg.nonce,
+      secret: secret,
+    })
+      .done(function (response) {
+        if (response && response.success && response.data) {
+          if (response.data.secret) {
+            $("#woocommerce_debipro_webhook_secret").val(response.data.secret);
+          }
+          $res.css("color", "#1a7f37").text(response.data.message || "Done.");
+        } else {
+          var msg =
+            (response && response.data && response.data.message) || "Error";
+          $res.css("color", "#b32d2e").text(msg);
+        }
+      })
+      .fail(function () {
+        $res.css("color", "#b32d2e").text("Request failed");
+      })
+      .always(function () {
+        $btn.prop("disabled", false);
+      });
+  });
 })(jQuery);
