@@ -237,7 +237,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                     />
                     <?php if (! self::is_local_site()) : ?>
                         <p style="margin:8px 0;">
-                            <button type="button" class="button button-secondary debipro-setup-webhook"><?php esc_html_e('Set up webhook automatically', 'debi-payment-for-woocommerce'); ?></button>
+                            <button type="button" class="button button-secondary debipro-setup-webhook"><?php esc_html_e('Test / Setup automatically', 'debi-payment-for-woocommerce'); ?></button>
                             <span class="debipro-test-result" data-result-for="webhook" role="status" aria-live="polite"></span>
                         </p>
                         <p class="description">
