@@ -35,7 +35,7 @@
         }
     ],
     "gateway": {
-        "gateway_id": "debi",
+        "gateway_id": "debipro",
         "enabled": "yes",
         "title": "Debi (sandbox)",
         "description": "Pay with Debi. Sandbox mode is enabled; no real charges are made.",

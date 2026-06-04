@@ -16,7 +16,7 @@
  * Plugin URI:        https://github.com/debipro/debi-payment-for-woocommerce
  * Description:       Official Debi payment gateway integration for WooCommerce. Accept credit cards with installments and automatic debit payments.
  * Version:           1.1.0
- * Author:            Fernando del Peral
+ * Author:            DEBI
  * Author URI:        https://github.com/debipro
  * License:           GPL-2.0+
  * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
@@ -26,7 +26,7 @@
  * Requires PHP:      8.1
  * Requires Plugins:  woocommerce
  * WC requires at least: 3.0
- * WC tested up to:   9.1
+ * WC tested up to:   9.8
  */
 
 // If this file is called directly, abort.
@@ -71,24 +71,23 @@ function debipro_load_textdomain() {
 	load_textdomain('debi-payment-for-woocommerce', $mofile);
 }
 
-if (debipro_is_woocommerce_active()) {
-	add_filter('woocommerce_payment_gateways', 'debipro_add_payment_gateway');
-	function debipro_add_payment_gateway($gateways) {
-		$gateways[] = 'DEBIPRO_Payment_Gateway';
-		return $gateways;
-	}
+function debipro_add_payment_gateway($gateways) {
+	$gateways[] = 'DEBIPRO_Payment_Gateway';
+	return $gateways;
+}
 
-	add_action('plugins_loaded', 'debipro_init_payment_gateway', 10);
-	function debipro_init_payment_gateway() {
-		require_once plugin_dir_path(__FILE__) . 'class-wc-debi.php';
+add_action('plugins_loaded', 'debipro_init_payment_gateway', 10);
+function debipro_init_payment_gateway() {
+	
+	require_once plugin_dir_path(__FILE__) . 'class-wc-debi.php';
 
-		// Registered here (not in the gateway constructor) so the AJAX test and
-		// the settings-screen asset are available even when WooCommerce hasn't
-		// instantiated the gateway for the current request.
-		add_action('wp_ajax_debipro_test_connection', array('DEBIPRO_Payment_Gateway', 'ajax_test_connection'));
-		add_action('admin_enqueue_scripts', array('DEBIPRO_Payment_Gateway', 'enqueue_admin_assets'));
-	}
+	add_filter( 'woocommerce_payment_gateways', 'debipro_add_payment_gateway' );
 
+	// Registered here (not in the gateway constructor) so the AJAX test and
+	// the settings-screen asset are available even when WooCommerce hasn't
+	// instantiated the gateway for the current request.
+	add_action('wp_ajax_debipro_test_connection', array('DEBIPRO_Payment_Gateway', 'ajax_test_connection'));
+	add_action('admin_enqueue_scripts', array('DEBIPRO_Payment_Gateway', 'enqueue_admin_assets'));
 }
 
 /**
