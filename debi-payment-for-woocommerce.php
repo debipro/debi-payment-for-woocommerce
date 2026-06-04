@@ -43,11 +43,40 @@ if (!defined('DEBIPRO_PLUGIN_URL')) {
 if (!defined('DEBIPRO_PLUGIN_VERSION')) {
 	define('DEBIPRO_PLUGIN_VERSION', '1.1.0');
 }
-
-// Load API client class
-if (!class_exists('DEBIPRO_debi')) {
-	require_once plugin_dir_path(__FILE__) . 'debi.php';
+if (!defined('DEBIPRO_PLUGIN_DIR')) {
+	define('DEBIPRO_PLUGIN_DIR', plugin_dir_path(__FILE__));
 }
+
+/**
+ * Dependency-free PSR-4 autoloader for the vendored Debi PHP SDK (`Debi\*` =>
+ * lib/debi-php/src/*) and this plugin's own domain layer (`DebiPro\*` => includes/*).
+ *
+ * We vendor only the SDK source and inject our own `Debi\HttpClient\ClientInterface`
+ * (DebiPro\Infrastructure\Http\WpDebiHttpClient) over wp_remote_request, so the SDK
+ * never reaches for its PSR-17/18 + php-http/discovery `DefaultClient`. Registering a
+ * tiny autoloader keeps the deploy a plain file copy (no `composer install` at runtime).
+ * The SDK requires PHP 8.1+; classes load lazily, only on the payment/webhook paths.
+ */
+spl_autoload_register(
+	static function ($class) {
+		static $prefixes = array(
+			'Debi\\'    => 'lib/debi-php/src/',
+			'DebiPro\\' => 'includes/',
+		);
+		foreach ($prefixes as $prefix => $base_dir) {
+			$len = strlen($prefix);
+			if (0 !== strncmp($class, $prefix, $len)) {
+				continue;
+			}
+			$relative = str_replace('\\', '/', substr($class, $len));
+			$file     = DEBIPRO_PLUGIN_DIR . $base_dir . $relative . '.php';
+			if (is_file($file)) {
+				require_once $file;
+			}
+			return;
+		}
+	}
+);
 
 // Load the dependency-free key helpers (used by the gateway + admin validation).
 if (!class_exists('DEBIPRO_Keys')) {
@@ -87,7 +116,12 @@ function debipro_init_payment_gateway() {
 	// the settings-screen asset are available even when WooCommerce hasn't
 	// instantiated the gateway for the current request.
 	add_action('wp_ajax_debipro_test_connection', array('DEBIPRO_Payment_Gateway', 'ajax_test_connection'));
+	add_action('wp_ajax_debipro_setup_webhook', array('DEBIPRO_Payment_Gateway', 'ajax_setup_webhook'));
 	add_action('admin_enqueue_scripts', array('DEBIPRO_Payment_Gateway', 'enqueue_admin_assets'));
+
+	// Webhook endpoint: POST /wp-json/debipro/v1/webhook. Registered on
+	// rest_api_init so Debi can drive subscription → order status updates.
+	add_action('rest_api_init', array('DebiPro\\Webhook\\WebhookController', 'register_routes'));
 }
 
 /**

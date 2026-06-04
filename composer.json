@@ -13,6 +13,13 @@
     "require": {
         "php": ">=8.1"
     },
+    "autoload-dev": {
+        "comment": "Dev/test only. At runtime the plugin uses its own spl_autoload_register (see debi-payment-for-woocommerce.php); composer autoload is never loaded by the shipped plugin, so this lives under autoload-dev and is dropped from --no-dev release builds.",
+        "psr-4": {
+            "DebiPro\\": "includes/",
+            "Debi\\": "lib/debi-php/src/"
+        }
+    },
     "require-dev": {
         "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
         "wp-coding-standards/wpcs": "^3.0",
