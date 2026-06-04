@@ -71,7 +71,7 @@ final class SubscriptionCreator {
 				'payment_method_id' => $token,
 				'interval_unit'     => 'monthly',
 				'interval'          => 1,
-				'day_of_month'      => self::safe_day_of_month(),
+				'day_of_month'      => self::billing_day_of_month(),
 				'count'             => $installments,
 				'customer_id'       => $customer_id,
 			),
@@ -127,11 +127,15 @@ final class SubscriptionCreator {
 	}
 
 	/**
-	 * Debi rejects day-of-month values that don't exist in every month, so clamp
-	 * 29–31 down to the 1st (the legacy gateway's behaviour).
+	 * Day of month (1–31) on which Debi bills the subscription: the day the
+	 * customer subscribes. No clamping is needed — Debi charges on the last day
+	 * of any month where the chosen day doesn't exist (e.g. the 31st in February).
 	 */
-	private static function safe_day_of_month(): int {
-		$day = (int) gmdate( 'j' );
-		return $day >= 29 ? 1 : $day;
+	private static function billing_day_of_month(): int {
+		// Use the site's local date so the billing day matches the customer's
+		// "today" (e.g. avoids rolling to the next day near midnight in UTC-3).
+		return function_exists( 'current_time' )
+			? (int) current_time( 'j' )
+			: (int) gmdate( 'j' );
 	}
 }
