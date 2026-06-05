@@ -775,11 +775,11 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         $identification = isset($_POST['participant_id']) ? sanitize_text_field(wp_unslash($_POST['participant_id'])) : '';
         $last_four      = isset($_POST['debipro-card_last_four']) ? sanitize_text_field(wp_unslash($_POST['debipro-card_last_four'])) : '';
 
-        update_post_meta($order_id, '_debipro_final_price', $final_price);
-        update_post_meta($order_id, '_debipro_installment_count', $installments);
-        update_post_meta($order_id, '_debipro_installment_amount', $installment_amount);
+        $order->update_meta_data('_debipro_final_price', $final_price);
+        $order->update_meta_data('_debipro_installment_count', $installments);
+        $order->update_meta_data('_debipro_installment_amount', $installment_amount);
         if ('' !== $last_four) {
-            update_post_meta($order_id, '_debipro_card_last_four', $last_four);
+            $order->update_meta_data('_debipro_card_last_four', $last_four);
         }
 
         try {
