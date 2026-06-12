@@ -80,7 +80,8 @@ class DEBIPRO_Product_Meta {
                     'description' => __('subscription: recurring payments with no fixed end. payment: single payment, no additional configuration per product.', 'debi-payment-for-woocommerce'),
                     'options'     => [
                         'subscription' => __('Subscription', 'debi-payment-for-woocommerce'),
-                        'payment'      => __('Single payment', 'debi-payment-for-woocommerce'),
+                        'installment'  => __('Installment', 'debi-payment-for-woocommerce'),
+                        'one_time'     => __('Single payment', 'debi-payment-for-woocommerce'),
                     ],
                 ]);
 
