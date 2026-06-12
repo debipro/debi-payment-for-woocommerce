@@ -23,6 +23,22 @@ require_once $autoload;
 define( 'DEBI_PLUGIN_DIR', dirname( __DIR__ ) );
 define( 'DEBI_PLUGIN_FILE', DEBI_PLUGIN_DIR . '/debi-payment-for-woocommerce.php' );
 
+if ( ! defined( 'WPINC' ) ) {
+	define( 'WPINC', true );
+}
+
+require_once DEBI_PLUGIN_DIR . '/includes/class-debipro-product-meta.php';
+require_once DEBI_PLUGIN_DIR . '/includes/class-debipro-cart.php';
+
+if ( ! function_exists( 'WC' ) ) {
+	/**
+	 * Test harness for WooCommerce. Tests set $GLOBALS['debipro_wc_stub'].
+	 */
+	function WC() {
+		return $GLOBALS['debipro_wc_stub'] ?? null;
+	}
+}
+
 /**
  * Minimal global WC_Order test double for host-based unit tests.
  *

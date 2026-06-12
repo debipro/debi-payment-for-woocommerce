@@ -47,6 +47,18 @@ if (!defined('DEBIPRO_PLUGIN_DIR')) {
 	define('DEBIPRO_PLUGIN_DIR', plugin_dir_path(__FILE__));
 }
 
+add_action('before_woocommerce_init', function () {
+	if (class_exists(\Automattic\WooCommerce\Utilities\FeaturesUtil::class)) {
+		\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('cart_checkout_blocks', __FILE__, true);
+		\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('custom_order_tables', __FILE__, true);
+	}
+});
+
+add_action('woocommerce_blocks_payment_method_type_registration', function ($registry) {
+	require_once plugin_dir_path(__FILE__) . 'class-debipro-blocks.php';
+	$registry->register(new DEBIPRO_Blocks_Integration());
+});
+
 /**
  * Dependency-free PSR-4 autoloader for the vendored Debi PHP SDK (`Debi\*` =>
  * lib/debi-php/src/*) and this plugin's own domain layer (`DebiPro\*` => includes/*).
@@ -107,7 +119,12 @@ function debipro_add_payment_gateway($gateways) {
 
 add_action('plugins_loaded', 'debipro_init_payment_gateway', 10);
 function debipro_init_payment_gateway() {
-	
+	require_once plugin_dir_path(__FILE__) . 'includes/class-debipro-product-meta.php';
+	DEBIPRO_Product_Meta::init();
+
+	require_once plugin_dir_path(__FILE__) . 'includes/class-debipro-cart.php';
+	DEBIPRO_Cart::init();
+
 	require_once plugin_dir_path(__FILE__) . 'class-debipro-payment-gateway.php';
 
 	add_filter( 'woocommerce_payment_gateways', 'debipro_add_payment_gateway' );
