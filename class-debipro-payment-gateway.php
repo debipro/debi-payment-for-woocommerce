@@ -86,28 +86,37 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                 'publishableKey' => $this->publishable_key,
                 'locale'         => 'es-AR',
                 'i18n'           => array(
-                    'loadError'    => __('The card form could not be loaded. Please refresh and try again.', 'debi-payment-for-woocommerce'),
-                    'genericError' => __('The card could not be validated. Check the details and try again.', 'debi-payment-for-woocommerce'),
-                    'notReady'     => __('The card form is not ready yet.', 'debi-payment-for-woocommerce'),
+                    'loadError'          => __('The card form could not be loaded. Please refresh and try again.', 'debi-payment-for-woocommerce'),
+                    'genericError'       => __('The card could not be validated. Check the details and try again.', 'debi-payment-for-woocommerce'),
+                    'rateLimitError'     => __('The payment service is temporarily busy. Please wait a moment and try again.', 'debi-payment-for-woocommerce'),
+                    'notReady'           => __('The card form is not ready yet.', 'debi-payment-for-woocommerce'),
+                    'recurringPayment'   => __('Monthly recurring payment', 'debi-payment-for-woocommerce'),
+                    'perMonth'           => __('Month', 'debi-payment-for-woocommerce'),
+                    'noInterest'         => __('interest-free', 'debi-payment-for-woocommerce'),
+                    'total'              => __('Total', 'debi-payment-for-woocommerce'),
+                    'selectInstallments' => __('Select the number of installments', 'debi-payment-for-woocommerce'),
+                    'installmentsLabel'  => __('Installments', 'debi-payment-for-woocommerce'),
                 ),
             )
         );
     }
 
     /**
-     * Read the financing configuration from the (single) product in the cart.
+     * Read the financing configuration from the (single) product in the cart,
+     * falling back to the gateway's global defaults for empty product fields.
      *
-     * @return array{product_id:int,product_title:string,monthly_interest:float,surcharge:float,min:int,max:int}
+     * @return array{product_id:int,product_title:string,type:string,monthly_interest:float,surcharge:float,installments:int|null,max_installments:int|null}
      */
-    private function get_cart_financing()
+    public function get_cart_financing()
     {
         $financing = array(
             'product_id'       => 0,
             'product_title'    => '',
+            'type'             => DebiProFinancingType::Installment,
             'monthly_interest' => 0.0,
             'surcharge'        => 0.0,
-            'min'              => 1,
-            'max'              => 1,
+            'installments'     => null,
+            'max_installments' => null,
         );
 
         if (! function_exists('WC') || ! WC()->cart) {
@@ -119,23 +128,15 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             if (! $product) {
                 continue;
             }
-            $product_id = $product->get_id();
+            $pf = DEBIPRO_Product_Meta::get_product_financing($product->get_id(), $this);
 
-            $monthly = get_post_meta($product_id, '_monthly_interest_percentage', true);
-            $min     = get_post_meta($product_id, '_minimum_installments_allowed', true);
-            $max     = get_post_meta($product_id, '_maximum_installments_allowed', true);
-            $surch   = get_post_meta($product_id, '_surcharge_percentage', true);
-
-            $financing['product_id']       = (int) $product_id;
+            $financing['product_id']       = (int) $product->get_id();
             $financing['product_title']    = (string) $product->get_title();
-            $financing['monthly_interest'] = is_numeric($monthly) ? (float) $monthly : 0.0;
-            $financing['surcharge']        = is_numeric($surch) ? (float) $surch : 0.0;
-            $financing['min']              = is_numeric($min) && $min > 0 ? (int) $min : 1;
-            $financing['max']              = is_numeric($max) && $max > 0 ? (int) $max : 1;
-
-            if ($financing['min'] > $financing['max']) {
-                $financing['min'] = $financing['max'];
-            }
+            $financing['type']             = $pf['type'];
+            $financing['monthly_interest'] = $pf['monthly_interest'];
+            $financing['surcharge']        = $pf['surcharge'];
+            $financing['installments']     = $pf['installments'];
+            $financing['max_installments'] = $pf['max_installments'];
         }
 
         return $financing;
@@ -146,18 +147,77 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
      * from the second onwards the base amount grows by the monthly rate.
      *
      * @param float $base_amount      Order total with any surcharge already applied.
-     * @param int   $installments     Number of installments (>= 1).
+     * @param ?int  $installments     Number of installments (>= 1) | null.
      * @param float $monthly_interest Monthly interest percentage.
      * @return float Total financed price.
      */
-    private static function financed_total($base_amount, $installments, $monthly_interest)
+    private static function financed_total(float $base_amount, ?int $installments, float $monthly_interest)
     {
-        if ($installments <= 1 || $monthly_interest == 0.0) {
+        if (!$installments || $installments <= 1 || $monthly_interest == 0.0) {
             return $base_amount;
         }
         $rate = $monthly_interest / 100;
         return $base_amount * pow(1 + $rate, $installments - 1);
     }
+
+    /**
+     * Build installment select options for the cart (used by Blocks checkout).
+     *
+     * @return array<int, array{value:int, label:string}>
+     */
+    public function get_installment_options_for_cart()
+    {
+        if (! function_exists('WC') || ! WC()->cart || WC()->cart->is_empty()) {
+            return [];
+        }
+
+        $financing = $this->get_cart_financing();
+        if ($financing['type'] === DebiProFinancingType::Subscription) {
+            return [];
+        }
+
+        $amount           = (float) WC()->cart->total;
+        $monthly_interest = $financing['monthly_interest'];
+        $surcharge        = $financing['surcharge'];
+        $base_amount      = $amount * (1 + $surcharge / 100);
+        $options          = array();
+
+        if (null !== $financing['installments']) {
+            $options[] = self::format_installment_option(
+                $financing['installments'],
+                $monthly_interest,
+                $surcharge,
+                $base_amount
+            );
+        } else {
+            for ($i = 1; $i <= $financing['max_installments']; $i++) {
+                $options[] = self::format_installment_option($i, $monthly_interest, $surcharge, $base_amount);
+            }
+        }
+
+        return $options;
+    }
+
+    /**
+     * @return array{value:int, label:string}
+     */
+    private static function format_installment_option($index, $monthly_interest, $surcharge, $base_amount)
+    {
+        $final     = self::financed_total($base_amount, $index, $monthly_interest);
+        $quota     = $final / $index;
+        $quota_fmt = number_format($quota, 2, ',', ' ');
+        $final_fmt = number_format($final, 2, ',', ' ');
+        $plural    = $index > 1 ? 's' : '';
+
+        if (0.0 === $monthly_interest && 0.0 === $surcharge) {
+            $label = sprintf('%d cuota%s de $ %s (sin interés)', $index, $plural, $quota_fmt);
+        } else {
+            $label = sprintf('%d cuota%s de $ %s ($ %s)', $index, $plural, $quota_fmt, $final_fmt);
+        }
+
+        return array('value' => $index, 'label' => $label);
+    }
+
     public function init_form_fields()
     {
         $this->form_fields = array(
@@ -195,6 +255,48 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                 'type' => 'password',
                 'default' => '',
                 'description' => __('Paste the endpoint signing secret from your Debi developers dashboard. Used to verify that incoming webhook events were sent by Debi.', 'debi-payment-for-woocommerce'),
+            ),
+            'product_defaults_title' => array(
+                'title'       => __('Product default values', 'debi-payment-for-woocommerce'),
+                'type'        => 'title',
+                'description' => __('These apply when the product does not have its own configuration in the Debi tab.', 'debi-payment-for-woocommerce'),
+            ),
+            'default_type' => array(
+                'title'   => __('Product type', 'debi-payment-for-woocommerce'),
+                'type'    => 'select',
+                'default' => 'subscription',
+                'options' => array(
+                    'subscription' => __('Subscription', 'debi-payment-for-woocommerce'),
+                    'payment'      => __('One-time payment', 'debi-payment-for-woocommerce'),
+                ),
+            ),
+            'default_monthly_interest_percentage' => array(
+                'title'             => __('Monthly interest (%)', 'debi-payment-for-woocommerce'),
+                'type'              => 'number',
+                'default'           => '2',
+                'custom_attributes' => array('min' => 0, 'step' => '0.01'),
+            ),
+            'default_installments' => array(
+                'title'             => __('Fixed installments', 'debi-payment-for-woocommerce'),
+                'type'              => 'number',
+                'default'           => '',
+                'description'       => __('Empty = no default fixed installments. Mutually exclusive with "Maximum installments".', 'debi-payment-for-woocommerce'),
+                'desc_tip'          => true,
+                'custom_attributes' => array('min' => 1, 'step' => 1),
+            ),
+            'default_max_installments' => array(
+                'title'             => __('Maximum installments', 'debi-payment-for-woocommerce'),
+                'type'              => 'number',
+                'default'           => '',
+                'description'       => __('The customer chooses between 1 and this value. Empty = no default maximum installments.', 'debi-payment-for-woocommerce'),
+                'desc_tip'          => true,
+                'custom_attributes' => array('min' => 1, 'step' => 1),
+            ),
+            'default_surcharge_percentage' => array(
+                'title'             => __('Surcharge (%)', 'debi-payment-for-woocommerce'),
+                'type'              => 'number',
+                'default'           => '0',
+                'custom_attributes' => array('min' => 0, 'step' => '0.01'),
             ),
         );
     }
@@ -755,22 +857,26 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             ? sanitize_text_field(wp_unslash($_POST['debipro-payment_method_token']))
             : '';
         if ('' === $token) {
-            wc_add_notice(__('Please enter your card details before paying.', 'debi-payment-for-woocommerce'), 'error');
-            return false;
+            throw new \Exception(__('Please enter your card details before paying.', 'debi-payment-for-woocommerce'));
         }
 
-        $installments = isset($_POST[$this->id . '-cuotas']) ? absint(wp_unslash($_POST[$this->id . '-cuotas'])) : 0;
-        if ($installments < 1) {
-            wc_add_notice(__('Invalid number of installments selected.', 'debi-payment-for-woocommerce'), 'error');
-            return false;
+        $financing                  = $this->get_cart_financing();
+        $max_inst                   = $financing['max_installments'];
+        $cuotas_raw                 = isset($_POST['debipro-cuotas']) ? absint(wp_unslash($_POST['debipro-cuotas'])) : 0;
+        $user_selected_installments = $cuotas_raw > 0 ? $cuotas_raw : null;
+        $financing_type             = $financing['type'];
+
+        if ( $user_selected_installments !== null
+            && $max_inst !== null
+            && $user_selected_installments > $max_inst
+        ) {
+            throw new \Exception(__('Invalid number of installments selected.', 'debi-payment-for-woocommerce'));
         }
 
-        $financing = $this->get_cart_financing();
-
-        // Apply surcharge to the order total, then finance over the installments.
+        $installments       = self::resolve_installments($order, $user_selected_installments);
         $base_amount        = (float) $order->get_total() * (1 + $financing['surcharge'] / 100);
         $final_price        = self::financed_total($base_amount, $installments, $financing['monthly_interest']);
-        $installment_amount = $final_price / $installments;
+        $installment_amount = self::resolve_installment_amount($financing_type, $final_price, $installments);
 
         $identification = isset($_POST['participant_id']) ? sanitize_text_field(wp_unslash($_POST['participant_id'])) : '';
         $last_four      = isset($_POST['debipro-card_last_four']) ? sanitize_text_field(wp_unslash($_POST['debipro-card_last_four'])) : '';
@@ -779,7 +885,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         $order->update_meta_data('_debipro_installment_count', $installments);
         $order->update_meta_data('_debipro_installment_amount', $installment_amount);
         if ('' !== $last_four) {
-            $order->update_meta_data('_debipro_card_last_four', $last_four);
+            $order->update_meta_data('_debipro_card_last_4_digits', $last_four);
         }
 
         try {
@@ -800,14 +906,15 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                     'identification_number' => $identification,
                 ),
             ));
+        } catch (\Debi\Exception\RateLimitException $e) {
+            $this->log_error('Rate limit hit for order ' . (int) $order_id . ': ' . $e->getMessage());
+            wc_add_notice(__('The payment service is temporarily busy. Please wait a moment and try again.', 'debi-payment-for-woocommerce'), 'error');
         } catch (\Debi\Exception\ExceptionInterface $e) {
             $this->log_error('Charge declined for order ' . (int) $order_id . ': ' . $e->getMessage());
             wc_add_notice(__('The payment was declined or could not be processed. Please check your card and try again.', 'debi-payment-for-woocommerce'), 'error');
-            return false;
         } catch (\Throwable $e) {
             $this->log_error('Charge failed for order ' . (int) $order_id . ': ' . $e->getMessage());
             wc_add_notice(__('We could not process the payment. Please try again in a moment.', 'debi-payment-for-woocommerce'), 'error');
-            return false;
         }
 
         // Stored via the order data store (HPOS-safe): the webhook handler looks
@@ -888,38 +995,25 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
 
     public function payment_fields()
     {
-        $financing   = $this->get_cart_financing();
-        $cart_total  = (function_exists('WC') && WC()->cart) ? (float) WC()->cart->total : 0.0;
-        $base_amount = $cart_total * (1 + $financing['surcharge'] / 100);
+        $financing  = $this->get_cart_financing();
+        $cart_total = (function_exists('WC') && WC()->cart) ? (float) WC()->cart->total : 0.0;
+        $f_json     = wp_json_encode(array(
+            'type'             => $financing['type']->value,
+            'monthly_interest' => $financing['monthly_interest'],
+            'surcharge'        => $financing['surcharge'],
+            'installments'     => $financing['installments'],
+            'max_installments' => $financing['max_installments'],
+        ));
 ?>
 
             <fieldset>
                 <?php echo wp_kses_post($this->get_description()); ?>
 
-                <p>
-                    <label for="<?php echo esc_attr($this->id); ?>-cuotas"><?php esc_html_e('Select number of installments', 'debi-payment-for-woocommerce'); ?><span class="required">*</span></label>
-                    <select id="<?php echo esc_attr($this->id); ?>-cuotas" name="<?php echo esc_attr($this->id); ?>-cuotas">
-                        <option value="" disabled selected><?php esc_html_e('Select number of installments', 'debi-payment-for-woocommerce'); ?></option>
-                        <?php
-                        for ($i = $financing['min']; $i <= $financing['max']; $i++) {
-                            $final_amount = self::financed_total($base_amount, $i, $financing['monthly_interest']);
-                            $quota_amount = $final_amount / $i;
-
-                            $final_amount_formatted = number_format($final_amount, 2, ',', ' ');
-                            $quota_amount_formatted = number_format($quota_amount, 2, ',', ' ');
-
-                            if ($financing['monthly_interest'] == 0 && $financing['surcharge'] == 0) {
-                                $text = $this->get_installment_no_interest_text($i, $quota_amount_formatted);
-                            } else {
-                                $text = $this->get_installment_text($i, $quota_amount_formatted, $final_amount_formatted);
-                            }
-                            ?>
-                            <option value="<?php echo esc_attr($i); ?>"><?php echo esc_html($text); ?></option>
-                            <?php
-                        }
-                        ?>
-                    </select>
-                </p>
+                <?php // JS (checkout-element.js) renders the installment plan UI here, reading fresh data from data attributes. ?>
+                <div id="debipro-installment-ui"
+                     data-financing="<?php echo esc_attr($f_json); ?>"
+                     data-cart-total="<?php echo esc_attr($cart_total); ?>">
+                </div>
 
                 <p class="form-row form-row-wide">
                     <label><?php esc_html_e('Card', 'debi-payment-for-woocommerce'); ?> <span class="required">*</span></label>
@@ -927,7 +1021,8 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                     <div id="debipro-card-element"></div>
                     <span id="debipro-card-errors" class="debipro-card-errors" role="alert" aria-live="polite"></span>
                     <input type="hidden" id="debipro-payment-method-token" name="debipro-payment_method_token" value="" />
-                    <input type="hidden" id="debipro-card-last-four" name="debipro-card_last_four" value="" />
+                    <input type="hidden" id="debipro_card_last_4_digits" name="debipro-card_last_four" value="" />
+                    <input type="hidden" id="debipro-cuotas" name="<?php echo esc_attr($this->id); ?>-cuotas" value="" />
                 </p>
 
                 <div class="clear"></div>
@@ -935,5 +1030,66 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             </fieldset>
 
 <?php
+    }
+
+    /**
+     * Resolve the number of installments for a subscription based on the product
+     * financing configuration and the customer-requested count.
+     *
+     * - payment type    → always 1 (single charge, no plan).
+     * - subscription with a fixed installment count on the product → use that value.
+     * - subscription with a max_installments cap → use $requested, throwing if it
+     *   exceeds the cap.
+     * - subscription with no constraint → use $requested as-is (0 = open-ended).
+     */
+    private static function resolve_installments( WC_Order $order, ?int $requested ): ?int {
+        $items     = $order->get_items();
+        $last_item = $items ? $items[ array_key_last( $items ) ] : false;
+
+        if(!$last_item) {
+            throw new \Exception(
+                __( 'Could not determine product from order; order contains no valid items.', 'debi-payment-for-woocommerce' )
+            );
+        }
+
+        $product_id     = (int) $last_item->get_product_id();
+        $financing      = \DEBIPRO_Product_Meta::get_product_financing( $product_id );
+        $financing_type = $financing['type'];
+
+        if($financing_type == DebiProFinancingType::Subscription)
+            return null;
+
+        if($financing_type == DebiProFinancingType::OneTimePayment)
+            return 1;
+
+        if($financing_type == DebiProFinancingType::Installment) {
+            $fixed_installments = $financing['installments'];
+            $max_installments   = $financing['max_installments'];
+
+            if ( $fixed_installments !== null )
+                return $fixed_installments;
+
+            if ( $requested === null ) {
+                throw new \Exception(
+                    __( 'Requested number of installments was not provided.', 'debi-payment-for-woocommerce' )
+                );
+            }
+
+            if( $max_installments !== null && $requested < $max_installments)
+                return $requested;                
+            
+            throw new \Exception(
+                sprintf(
+                __( 'Requested installments (%1$d) exceed the product maximum (%2$d).', 'debi-payment-for-woocommerce' ),
+                $requested,
+                $max_installments)
+            );
+        }
+        
+        throw new \Exception(__( 'Product financing configuration is invalid.', 'debi-payment-for-woocommerce' ));
+    }
+
+    private static function resolve_installment_amount(DebiProFinancingType $product_type, float $final_price, int $installments) {
+        return $final_price / max(1, $installments);
     }
 }
