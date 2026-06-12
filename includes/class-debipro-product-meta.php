@@ -70,16 +70,16 @@ class DEBIPRO_Product_Meta {
 		$surch   = get_post_meta($pid, self::SURCHARGE_KEY, true);
 		?>
 		<div id="debipro_product_data" class="panel woocommerce_options_panel">
-			<div class="options_group">
-				<?php
-				woocommerce_wp_select([
+            <div class="options_group">
+                <?php
+                woocommerce_wp_select([
                     'id'          => self::TYPE_KEY,
                     'label'       => __('Type', 'debi-payment-for-woocommerce'),
                     'value'       => $type ?: $d['type'],
                     'desc_tip'    => true,
                     'description' => __('subscription: recurring payments with no fixed end. payment: single payment, no additional configuration per product.', 'debi-payment-for-woocommerce'),
                     'options'     => [
-                        'subscription' => __('Subscription', 'debi-payment-for-woocommerce'),
+                        // 'subscription' => __('Subscription', 'debi-payment-for-woocommerce'),
                         'installment'  => __('Installment', 'debi-payment-for-woocommerce'),
                         'one_time'     => __('Single payment', 'debi-payment-for-woocommerce'),
                     ],
@@ -128,31 +128,44 @@ class DEBIPRO_Product_Meta {
                     'type'              => 'number',
                     'custom_attributes' => ['min' => 0, 'step' => '0.01'],
                 ]);
-				?>
-			</div>
-		</div>
-		<script>
-		jQuery(function($) {
-			var $type         = $('#<?php echo esc_js(self::TYPE_KEY); ?>');
-			var $hideFields   = $(
-				'#<?php echo esc_js(self::INTEREST_KEY); ?>_field,' +
-				'#<?php echo esc_js(self::SURCHARGE_KEY); ?>_field'
-			);
-			var $installInput = $('#<?php echo esc_js(self::INSTALL_KEY); ?>');
-			var $maxInput     = $('#<?php echo esc_js(self::MAX_INST_KEY); ?>');
+                ?>
+            </div>
+        </div>
+        
+        <script type="text/javascript">
+        jQuery(document).ready(function($) {
+            
+            function toggleDebiFields() {
+                var $typeSelect = $('#<?php echo esc_js(self::TYPE_KEY); ?>');
+                var $fieldsToToggle = $(
+                    '#<?php echo esc_js(self::INSTALL_KEY); ?>, ' +
+                    '#<?php echo esc_js(self::MAX_INST_KEY); ?>'
+                ).closest('.form-field');
 
-			function toggle() {
-				var isPayment = $type.val() === 'payment';
-				$hideFields.toggle(!isPayment);
-				$installInput.prop('disabled', isPayment);
-				$maxInput.prop('disabled', isPayment);
-			}
+                if ($typeSelect.length === 0) return;
 
-			$type.on('change', toggle);
-			toggle();
-		});
-		</script>
-		<?php
+                var isPayment = $typeSelect.val() === 'one_time';
+
+                if (isPayment) {
+                    $fieldsToToggle.hide();
+                } else {
+                    $fieldsToToggle.show();
+                }
+            }
+
+            $(document).on('change', '#<?php echo esc_js(self::TYPE_KEY); ?>', function() {
+                toggleDebiFields();
+            });
+
+            $(document).on('woocommerce_panels_saved woocommerce_product_type_changed', function() {
+                toggleDebiFields();
+            });
+
+            toggleDebiFields();
+            setTimeout(toggleDebiFields, 200);
+        });
+        </script>
+        <?php
 	}
 
 	public static function save_product_meta($post_id) {
