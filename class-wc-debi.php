@@ -863,7 +863,6 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         $max_inst                   = $financing['max_installments'];
         $cuotas_raw                 = isset($_POST['debipro-cuotas']) ? absint(wp_unslash($_POST['debipro-cuotas'])) : 0;
         $user_selected_installments = $cuotas_raw > 0 ? $cuotas_raw : null;
-        $financing_type             = $financing['type'];
 
         if ( $user_selected_installments !== null
             && $max_inst !== null
@@ -875,7 +874,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         $installments       = self::resolve_installments($order, $user_selected_installments);
         $base_amount        = (float) $order->get_total() * (1 + $financing['surcharge'] / 100);
         $final_price        = self::financed_total($base_amount, $installments, $financing['monthly_interest']);
-        $installment_amount = self::resolve_installment_amount($financing_type, $final_price, $installments);
+        $installment_amount = self::resolve_installment_amount($final_price, $installments);
 
         $identification = isset($_POST['participant_id']) ? sanitize_text_field(wp_unslash($_POST['participant_id'])) : '';
         $last_four      = isset($_POST['debipro-card_last_four']) ? sanitize_text_field(wp_unslash($_POST['debipro-card_last_four'])) : '';
@@ -1088,7 +1087,11 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         throw new \Exception(__( 'Product financing configuration is invalid.', 'debi-payment-for-woocommerce' ));
     }
 
-    private static function resolve_installment_amount(DebiProFinancingType $product_type, float $final_price, int $installments) {
+    private static function resolve_installment_amount(float $final_price, ?int $installments) {
+        if (!$installments) {
+            return $final_price;
+        }
+
         return $final_price / max(1, $installments);
     }
 }
