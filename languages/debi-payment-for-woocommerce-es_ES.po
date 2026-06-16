@@ -5,117 +5,357 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Debi Payment for WooCommerce 1.1.0\n"
 "Report-Msgid-Bugs-To: https://debi.pro\n"
-"POT-Creation-Date: 2024-01-01 12:00+0000\n"
+"POT-Creation-Date: 2026-06-16 10:11-0300\n"
+"PO-Revision-Date: 2026-06-16 10:11-0300\n"
+"Last-Translator: DEBI <support@debi.pro>\n"
+"Language-Team: Spanish (Spain) <support@debi.pro>\n"
+"Language: es_ES\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: es_ES\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: class-wc-debi.php:41
-#: class-wc-debi.php:42
+#: class-debipro-payment-gateway.php:38 class-debipro-payment-gateway.php:39
 msgid "Debi Payment"
 msgstr "Pago Debi"
 
-#: class-wc-debi.php:72
+#: class-debipro-payment-gateway.php:88
+msgid "The card form could not be loaded. Please refresh and try again."
+msgstr "El formulario de tarjeta no se pudo cargar. Por favor recargue la página e intente nuevamente."
+
+#: class-debipro-payment-gateway.php:89
+msgid "The card could not be validated. Check the details and try again."
+msgstr "La tarjeta no pudo ser validada. Verifique los datos e intente nuevamente."
+
+#: class-debipro-payment-gateway.php:90
+msgid "The card form is not ready yet."
+msgstr "El formulario de tarjeta todavía no está listo."
+
+#: class-debipro-payment-gateway.php:164
 msgid "Enable/Disable"
 msgstr "Activar/Desactivar"
 
-#: class-wc-debi.php:74
+#: class-debipro-payment-gateway.php:166
 msgid "Enable Custom Payment"
 msgstr "Activar método de pago personalizado"
 
-#: class-wc-debi.php:78
+#: class-debipro-payment-gateway.php:170
 msgid "Method Title"
 msgstr "Título del método"
 
-#: class-wc-debi.php:80
+#: class-debipro-payment-gateway.php:172
 msgid "This controls the title"
 msgstr "Controla el título"
 
-#: class-wc-debi.php:81
+#: class-debipro-payment-gateway.php:173
 msgid "Credit or debit card in installments"
 msgstr "Tarjeta de crédito o débito en cuotas"
 
-#: class-wc-debi.php:85
-msgid "Sanbox mode"
-msgstr "Modo de pruebas (Sandbox)"
+#: class-debipro-payment-gateway.php:177
+msgid "Secret key"
+msgstr "Clave secreta"
 
-#: class-wc-debi.php:87
-msgid "Sandbox"
-msgstr "Pruebas"
+#: class-debipro-payment-gateway.php:180
+msgid ""
+"Use sk_test_… for sandbox or sk_live_… for production — the environment is "
+"inferred from the prefix. Used server-side only; never exposed to the "
+"browser."
+msgstr "Use sk_test_… para sandbox o sk_live_… para producción — el entorno se infiere del prefijo. Solo se usa en el servidor; nunca se expone al navegador."
 
-#: class-wc-debi.php:89
-msgid "Check if you want to use sandbox mode for testing"
-msgstr "Activa para usar el modo de pruebas"
+#: class-debipro-payment-gateway.php:183
+msgid "Publishable key"
+msgstr "Clave publicable"
 
-#: class-wc-debi.php:92
-msgid "Token Debi Live"
-msgstr "Token Debi Live (Producción)"
+#: class-debipro-payment-gateway.php:186
+msgid ""
+"Safe to expose in the browser; the checkout card element uses it "
+"(pk_test_… / pk_live_…). Must match the secret key environment."
+msgstr "Seguro para exponer en el navegador; el elemento de tarjeta en el checkout lo utiliza (pk_test_… / pk_live_…). Debe coincidir con el entorno de la clave secreta."
 
-#: class-wc-debi.php:96
-msgid "Generate token in developer section of debi"
-msgstr "Genera el token en la sección de desarrollador de debi"
+#: class-debipro-payment-gateway.php:189
+msgid "Webhook URL"
+msgstr "URL del Webhook"
 
-#: class-wc-debi.php:100
-msgid "Token Debi Sandbox"
-msgstr "Token Debi Sandbox (Pruebas)"
+#: class-debipro-payment-gateway.php:193
+msgid "Webhook signing secret"
+msgstr "Secreto de firma del Webhook"
 
-#: class-wc-debi.php:104
-msgid "Generate token in developer section of debi-test.pro"
-msgstr "Genera el token en la sección de desarrollador de debi-test.pro"
+#: class-debipro-payment-gateway.php:196
+msgid ""
+"Paste the endpoint signing secret from your Debi developers dashboard. Used "
+"to verify that incoming webhook events were sent by Debi."
+msgstr "Pegue el secreto de firma del endpoint desde el panel de desarrolladores de Debi. Se usa para verificar que los eventos de webhook entrantes fueron enviados por Debi."
 
-#: class-wc-debi.php:109
-msgid "% interest for payment in two business days with debit"
-msgstr "% de interés para pago en dos días hábiles con débito"
+#: class-debipro-payment-gateway.php:240
+msgid "Test / Setup automatically"
+msgstr "Probar / Configurar automáticamente"
 
-#: class-wc-debi.php:122
-msgid "% interest for %1$d installment"
-msgid_plural "% interest for %1$d installments"
-msgstr[0] "% de interés para %1$d cuota"
-msgstr[1] "% de interés para %1$d cuotas"
+#: class-debipro-payment-gateway.php:244
+msgid ""
+"Uses your secret key to create the endpoint at Debi (subscription.cancelled, "
+"subscription.finished) if it does not exist yet, and fills in the signing "
+"secret below. Save changes to persist it."
+msgstr "Usa su clave secreta para crear el endpoint en Debi (subscription.cancelled, subscription.finished) si no existe aún, y completa el secreto de firma abajo. Guarde los cambios para persistirlo."
 
-#: class-wc-debi.php:142
+#. translators: 1: production dashboard link, 2: testing dashboard link.
+#: class-debipro-payment-gateway.php:251
+#, php-format
+msgid ""
+"This site is not publicly reachable, so automatic setup is disabled. Add "
+"this URL as a webhook endpoint (events: subscription.cancelled, "
+"subscription.finished) in your Debi dashboard — Production: %1$s · Testing: "
+"%2$s — then paste its signing secret below."
+msgstr "Este sitio no es accesible públicamente, por lo que la configuración automática está deshabilitada. Agregue esta URL como endpoint de webhook (eventos: subscription.cancelled, subscription.finished) en su panel de Debi — Producción: %1$s · Pruebas: %2$s — luego pegue el secreto de firma abajo."
+
+#: class-debipro-payment-gateway.php:307 class-debipro-payment-gateway.php:566
+msgid "You are not allowed to do this."
+msgstr "No tiene permiso para realizar esta acción."
+
+#: class-debipro-payment-gateway.php:311
+msgid "Automatic setup is unavailable on local sites."
+msgstr "La configuración automática no está disponible en sitios locales."
+
+#: class-debipro-payment-gateway.php:319
+msgid "Enter a valid secret key first (sk_test_… or sk_live_…)."
+msgstr "Ingrese primero una clave secreta válida (sk_test_… o sk_live_…)."
+
+#: class-debipro-payment-gateway.php:325
+msgid "Debi rejected the request. Check the secret key and try again."
+msgstr "Debi rechazó la solicitud. Verifique la clave secreta e intente nuevamente."
+
+#: class-debipro-payment-gateway.php:327
+msgid "The webhook could not be set up. Please try again."
+msgstr "No se pudo configurar el webhook. Por favor intente nuevamente."
+
+#: class-debipro-payment-gateway.php:331
+msgid ""
+"The endpoint exists but its signing secret was not returned. Copy it from "
+"the Debi dashboard."
+msgstr "El endpoint ya existe pero no se devolvió su secreto de firma. Cópielo desde el panel de Debi."
+
+#: class-debipro-payment-gateway.php:342
+msgid "Webhook created and signing secret saved."
+msgstr "Webhook creado y secreto de firma guardado."
+
+#: class-debipro-payment-gateway.php:343
+msgid "Existing webhook found; signing secret saved."
+msgstr "Webhook existente encontrado; secreto de firma guardado."
+
+#: class-debipro-payment-gateway.php:469 class-debipro-payment-gateway.php:728
+msgid "Not configured"
+msgstr "No configurado"
+
+#: class-debipro-payment-gateway.php:471
+msgid "Test"
+msgstr "Probar"
+
+#: class-debipro-payment-gateway.php:476
+msgid "Saved secret key:"
+msgstr "Clave secreta guardada:"
+
+#. translators: 1: production dashboard link, 2: testing dashboard link.
+#: class-debipro-payment-gateway.php:487
+#, php-format
+msgid "Find your keys — Production: %1$s · Testing: %2$s"
+msgstr "Encuentre sus claves — Producción: %1$s · Pruebas: %2$s"
+
+#: class-debipro-payment-gateway.php:573
+msgid "Enter at least one key before testing."
+msgstr "Ingrese al menos una clave antes de probar."
+
+#: class-debipro-payment-gateway.php:593 class-debipro-payment-gateway.php:726
+msgid "TEST (sandbox)"
+msgstr "TEST (sandbox)"
+
+#: class-debipro-payment-gateway.php:594 class-debipro-payment-gateway.php:727
+msgid "PRODUCTION"
+msgstr "PRODUCCIÓN"
+
+#: class-debipro-payment-gateway.php:616
+msgid "Not a secret key (must start with sk_test_ or sk_live_)."
+msgstr "No es una clave secreta (debe comenzar con sk_test_ o sk_live_)."
+
+#: class-debipro-payment-gateway.php:617
+msgid "Not a publishable key (must start with pk_test_ or pk_live_)."
+msgstr "No es una clave publicable (debe comenzar con pk_test_ o pk_live_)."
+
+#: class-debipro-payment-gateway.php:623
+msgid "The key environment could not be determined from its prefix."
+msgstr "No se pudo determinar el entorno de la clave desde su prefijo."
+
+#: class-debipro-payment-gateway.php:633
+msgid "Could not reach Debi to verify the key. Please try again."
+msgstr "No se pudo conectar con Debi para verificar la clave. Por favor intente nuevamente."
+
+#: class-debipro-payment-gateway.php:642
+msgid "Authentication failed: Debi rejected this key."
+msgstr "Autenticación fallida: Debi rechazó esta clave."
+
+#. translators: %s is the environment label (TEST/PRODUCTION).
+#: class-debipro-payment-gateway.php:654
+#, php-format
+msgid "OK — %s."
+msgstr "OK — %s."
+
+#. translators: %d is the HTTP status code returned by Debi.
+#: class-debipro-payment-gateway.php:663
+#, php-format
+msgid "Debi returned an unexpected response (HTTP %d)."
+msgstr "Debi devolvió una respuesta inesperada (HTTP %d)."
+
+#: class-debipro-payment-gateway.php:729
+msgid "Keys belong to different environments"
+msgstr "Las claves pertenecen a entornos distintos"
+
+#: class-debipro-payment-gateway.php:730
+msgid "Secret key must start with sk_test_ or sk_live_"
+msgstr "La clave secreta debe comenzar con sk_test_ o sk_live_"
+
+#: class-debipro-payment-gateway.php:731
+msgid "Publishable key must start with pk_test_ or pk_live_"
+msgstr "La clave publicable debe comenzar con pk_test_ o pk_live_"
+
+#: class-debipro-payment-gateway.php:732
+msgid "Testing…"
+msgstr "Probando…"
+
+#: class-debipro-payment-gateway.php:733
+msgid "Fix the Debi keys before saving."
+msgstr "Corrija las claves de Debi antes de guardar."
+
+#: class-debipro-payment-gateway.php:734
+msgid "Enter a key before testing."
+msgstr "Ingrese una clave antes de probar."
+
+#: class-debipro-payment-gateway.php:735
+msgid "Setting up…"
+msgstr "Configurando…"
+
+#: class-debipro-payment-gateway.php:736
+msgid "Enter your secret key first."
+msgstr "Ingrese su clave secreta primero."
+
+#: class-debipro-payment-gateway.php:747
 msgid "Order not found."
 msgstr "Orden no encontrada."
 
-#: class-wc-debi.php:167
+#: class-debipro-payment-gateway.php:757
+msgid "Please enter your card details before paying."
+msgstr "Por favor ingrese los datos de su tarjeta antes de pagar."
+
+#: class-debipro-payment-gateway.php:763
 msgid "Invalid number of installments selected."
 msgstr "Número de cuotas inválido."
 
-#: class-wc-debi.php:182
-msgid "Card number is required."
-msgstr "El número de tarjeta es requerido."
+#: class-debipro-payment-gateway.php:804
+msgid ""
+"The payment was declined or could not be processed. Please check your card "
+"and try again."
+msgstr "El pago fue rechazado o no pudo procesarse. Por favor verifique su tarjeta e intente nuevamente."
 
-#: class-wc-debi.php:189
-msgid "Invalid card number."
-msgstr "Número de tarjeta inválido."
+#: class-debipro-payment-gateway.php:808
+msgid "We could not process the payment. Please try again in a moment."
+msgstr "No pudimos procesar el pago. Por favor intente nuevamente en un momento."
 
-#: class-wc-debi.php:286
+#. translators: %1$d is the installment count, %2$s is the installment amount, %3$s is the total amount
+#: class-debipro-payment-gateway.php:855
+#, php-format
 msgid "%1$d installment of $ %2$s ($ %3$s)"
 msgstr "%1$d cuota de $ %2$s ($ %3$s)"
 
-#: class-wc-debi.php:288
+#. translators: %1$d is the installment count, %2$s is the installment amount, %3$s is the total amount
+#: class-debipro-payment-gateway.php:857
+#, php-format
 msgid "%1$d installments of $ %2$s ($ %3$s)"
 msgstr "%1$d cuotas de $ %2$s ($ %3$s)"
 
-#: class-wc-debi.php:310
+#. translators: %1$d is the installment count, %2$s is the installment amount
+#: class-debipro-payment-gateway.php:879
+#, php-format
 msgid "%1$d installment of $ %2$s (no interest)"
 msgstr "%1$d cuota de $ %2$s (sin interés)"
 
-#: class-wc-debi.php:312
+#. translators: %1$d is the installment count, %2$s is the installment amount
+#: class-debipro-payment-gateway.php:881
+#, php-format
 msgid "%1$d installments of $ %2$s (no interest)"
 msgstr "%1$d cuotas de $ %2$s (sin interés)"
 
-#: class-wc-debi.php:336
+#: class-debipro-payment-gateway.php:899 class-debipro-payment-gateway.php:901
 msgid "Select number of installments"
 msgstr "Seleccione la cantidad de cuotas"
 
-#: class-wc-debi.php:348
-msgid "DEBIT CARD ONLY"
-msgstr "SOLO CON TARJETA DE DÉBITO"
+#: class-debipro-payment-gateway.php:924
+msgid "Card"
+msgstr "Tarjeta"
 
-#: class-wc-debi.php:378
-msgid "Enter your card number"
-msgstr "Ingrese su número de tarjeta"
+#: includes/class-debipro-keys.php:90
+msgid ""
+"The Secret key must start with sk_test_ or sk_live_. It looks like you "
+"pasted a publishable (pk_) key."
+msgstr "La clave secreta debe comenzar con sk_test_ o sk_live_. Parece que pegó una clave publicable (pk_)."
 
+#: includes/class-debipro-keys.php:93
+msgid ""
+"The Secret key environment could not be determined. Use a key starting with "
+"sk_test_ (sandbox) or sk_live_ (production)."
+msgstr "No se pudo determinar el entorno de la clave secreta. Use una clave que comience con sk_test_ (sandbox) o sk_live_ (producción)."
+
+#: includes/class-debipro-keys.php:99
+msgid ""
+"The Publishable key must start with pk_test_ or pk_live_. Never paste your "
+"secret (sk_) key here."
+msgstr "La clave publicable debe comenzar con pk_test_ o pk_live_. Nunca pegue aquí su clave secreta (sk_)."
+
+#: includes/class-debipro-keys.php:102
+msgid ""
+"The Publishable key environment could not be determined. Use a key starting "
+"with pk_test_ (sandbox) or pk_live_ (production)."
+msgstr "No se pudo determinar el entorno de la clave publicable. Use una clave que comience con pk_test_ (sandbox) o pk_live_ (producción)."
+
+#: includes/class-debipro-keys.php:107
+msgid ""
+"The Secret and Publishable keys belong to different environments (test vs "
+"live). Use a matching pair."
+msgstr "La clave secreta y la clave publicable pertenecen a entornos distintos (test vs live). Use un par que coincida."
+
+#~ msgid "Sanbox mode"
+#~ msgstr "Modo de pruebas (Sandbox)"
+
+#~ msgid "Sandbox"
+#~ msgstr "Pruebas"
+
+#~ msgid "Check if you want to use sandbox mode for testing"
+#~ msgstr "Activa para usar el modo de pruebas"
+
+#~ msgid "Token Debi Live"
+#~ msgstr "Token Debi Live (Producción)"
+
+#~ msgid "Generate token in developer section of debi"
+#~ msgstr "Genera el token en la sección de desarrollador de debi"
+
+#~ msgid "Token Debi Sandbox"
+#~ msgstr "Token Debi Sandbox (Pruebas)"
+
+#~ msgid "Generate token in developer section of debi-test.pro"
+#~ msgstr "Genera el token en la sección de desarrollador de debi-test.pro"
+
+#~ msgid "% interest for payment in two business days with debit"
+#~ msgstr "% de interés para pago en dos días hábiles con débito"
+
+#~ msgid "% interest for %1$d installment"
+#~ msgid_plural "% interest for %1$d installments"
+#~ msgstr[0] "% de interés para %1$d cuota"
+#~ msgstr[1] "% de interés para %1$d cuotas"
+
+#~ msgid "Card number is required."
+#~ msgstr "El número de tarjeta es requerido."
+
+#~ msgid "Invalid card number."
+#~ msgstr "Número de tarjeta inválido."
+
+#~ msgid "DEBIT CARD ONLY"
+#~ msgstr "SOLO CON TARJETA DE DÉBITO"
+
+#~ msgid "Enter your card number"
+#~ msgstr "Ingrese su número de tarjeta"
