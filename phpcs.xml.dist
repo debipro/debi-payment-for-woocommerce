@@ -72,6 +72,6 @@
     <!-- Legacy files (will be rewritten in a follow-up); not linted in this phase. -->
     <exclude-pattern>debi-payment-for-woocommerce.php</exclude-pattern>
     <exclude-pattern>debi.php</exclude-pattern>
-    <exclude-pattern>class-wc-debi.php</exclude-pattern>
+    <exclude-pattern>class-debipro-payment-gateway.php</exclude-pattern>
     <exclude-pattern>uninstall.php</exclude-pattern>
 </ruleset>

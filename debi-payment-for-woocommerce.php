@@ -9,7 +9,7 @@
  *
  * @link              https://debi.pro
  * @since             1.0.0
- * @package           WooCommerce_Debi
+ * @package           Debi_Payment_For_WooCommerce
  *
  * @wordpress-plugin
  * Plugin Name:       Debi Payment for WooCommerce
@@ -108,7 +108,7 @@ function debipro_add_payment_gateway($gateways) {
 add_action('plugins_loaded', 'debipro_init_payment_gateway', 10);
 function debipro_init_payment_gateway() {
 	
-	require_once plugin_dir_path(__FILE__) . 'class-wc-debi.php';
+	require_once plugin_dir_path(__FILE__) . 'class-debipro-payment-gateway.php';
 
 	add_filter( 'woocommerce_payment_gateways', 'debipro_add_payment_gateway' );
 

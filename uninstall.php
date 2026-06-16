@@ -4,7 +4,8 @@
  *
  * @link              https://debi.pro
  * @since             1.0.0
- * @package           WooCommerce_Debi
+ * @package           Debi_Payment_For_WooCommerce
+ * @license           GPL-2.0-or-later
  */
 
 // If uninstall not called from WordPress, then exit.

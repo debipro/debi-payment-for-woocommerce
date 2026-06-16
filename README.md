@@ -8,7 +8,7 @@ canonical file consumed by the [WordPress.org plugin
 directory](https://wordpress.org/plugins/).
 
 > The current plugin source (`debi-payment-for-woocommerce.php`, `debi.php`,
-> `class-wc-debi.php`, `uninstall.php`) is being rewritten on top of the
+> `class-debipro-payment-gateway.php`, `uninstall.php`) is being rewritten on top of the
 > `debi-php` and `debi-js` SDKs. The infrastructure in this branch
 > (`refactor`) is the foundation for that rewrite. The scaffolding is
 > intentionally lightweight and is not yet wired to publish anything.
@@ -124,7 +124,7 @@ fast.
 debi-payment-for-woocommerce/
 ├── debi-payment-for-woocommerce.php   # plugin entry (placeholder — being rewritten)
 ├── debi.php                           # placeholder
-├── class-wc-debi.php                  # placeholder
+├── class-debipro-payment-gateway.php  # placeholder
 ├── uninstall.php                      # placeholder
 ├── languages/                         # translations
 ├── README.txt                         # WordPress.org-facing readme
