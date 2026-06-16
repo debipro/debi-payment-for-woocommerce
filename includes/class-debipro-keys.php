@@ -13,7 +13,8 @@
  * The environment is INFERRED from the prefix — there is no separate
  * "sandbox mode" switch anymore.
  *
- * @package    WooCommerce_Debi
+ * @package    Debi_Payment_For_WooCommerce
+ * @license    GPL-2.0-or-later
  * @author     Fernando del Peral <support@debi.pro>
  */
 

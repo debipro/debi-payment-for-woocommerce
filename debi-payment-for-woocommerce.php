@@ -9,7 +9,7 @@
  *
  * @link              https://debi.pro
  * @since             1.0.0
- * @package           WooCommerce_Debi
+ * @package           Debi_Payment_For_WooCommerce
  *
  * @wordpress-plugin
  * Plugin Name:       Debi Payment for WooCommerce

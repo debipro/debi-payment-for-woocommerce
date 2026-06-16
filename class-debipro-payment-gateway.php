@@ -2,7 +2,8 @@
 /**
  * The core plugin class for Debi payment gateway.
  *
- * @package    WooCommerce_Debi
+ * @package    Debi_Payment_For_WooCommerce
+ * @license    GPL-2.0-or-later
  * @author     Fernando del Peral <support@debi.pro>
  */
 
@@ -14,7 +15,7 @@ if (!defined('WPINC')) {
 /**
  * DEBIPRO_Payment_Gateway Payment Gateway
  *
- * @package    WooCommerce_Debi
+ * @package    Debi_Payment_For_WooCommerce
  */
 class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
 {
