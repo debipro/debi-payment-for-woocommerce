@@ -335,6 +335,7 @@
             result.token.card && result.token.card.last_four_digits;
           $("#debipro_card_last_4_digits").val(lastFour || "");
           showError("");
+          unblock($form);
           $form.trigger("submit");
         } else {
           showError(describeError(result && result.error));

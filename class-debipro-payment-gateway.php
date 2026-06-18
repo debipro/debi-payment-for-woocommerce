@@ -915,12 +915,15 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         } catch (\Debi\Exception\RateLimitException $e) {
             $this->log_error('Rate limit hit for order ' . (int) $order_id . ': ' . $e->getMessage());
             wc_add_notice(__('The payment service is temporarily busy. Please wait a moment and try again.', 'debi-payment-for-woocommerce'), 'error');
+            return false;
         } catch (\Debi\Exception\ExceptionInterface $e) {
             $this->log_error('Charge declined for order ' . (int) $order_id . ': ' . $e->getMessage());
             wc_add_notice(__('The payment was declined or could not be processed. Please check your card and try again.', 'debi-payment-for-woocommerce'), 'error');
+            return false;
         } catch (\Throwable $e) {
             $this->log_error('Charge failed for order ' . (int) $order_id . ': ' . $e->getMessage());
             wc_add_notice(__('We could not process the payment. Please try again in a moment.', 'debi-payment-for-woocommerce'), 'error');
+            return false;
         }
 
         // Stored via the order data store (HPOS-safe): the webhook handler looks
