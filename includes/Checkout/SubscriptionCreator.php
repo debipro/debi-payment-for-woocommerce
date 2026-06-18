@@ -65,7 +65,7 @@ final class SubscriptionCreator {
 		$client  = DebiClientFactory::create();
 		$blog_id = (int) ( function_exists( 'get_current_blog_id' ) ? get_current_blog_id() : 1 );
 		$user_id = (int) $order->get_customer_id();
-		
+
 		$order_id    = (int) $order->get_id();
 		$customer_id = self::resolve_customer( $client, $customer, $blog_id, $user_id, $order_id );
 
@@ -73,7 +73,7 @@ final class SubscriptionCreator {
 			throw new \RuntimeException( 'Could not register the Debi customer.' );
 		}
 
-		self::attach_payment_method($client, $token, $customer_id, $blog_id, $order_id);
+		self::attach_payment_method( $client, $token, $customer_id, $blog_id, $order_id );
 
 		$params = array(
 			'amount'            => $amount,
@@ -84,14 +84,14 @@ final class SubscriptionCreator {
 			'day_of_month'      => self::billing_day_of_month(),
 			'customer_id'       => $customer_id,
 		);
-		
+
 		if ( $installments > 0 ) {
 			$params['count'] = $installments;
 		}
-		
+
 		$subscription = $client->subscriptions->create(
 			$params,
-			array( 'idempotency_key' => sprintf('debipro-sub-%d-%d', $blog_id, $order_id ))
+			array( 'idempotency_key' => sprintf( 'debipro-sub-%d-%d', $blog_id, $order_id ) )
 		);
 
 		$subscription_id = isset( $subscription->id ) ? (string) $subscription->id : '';
@@ -155,7 +155,7 @@ final class SubscriptionCreator {
 			: (int) gmdate( 'j' );
 	}
 
-	private static function attach_payment_method(DebiClient $client, string $token, string $customer_id, int $blog_id, int $order_id ): void {
+	private static function attach_payment_method( DebiClient $client, string $token, string $customer_id, int $blog_id, int $order_id ): void {
 		$client->paymentMethods->attach(
 			$token,
 			$customer_id,

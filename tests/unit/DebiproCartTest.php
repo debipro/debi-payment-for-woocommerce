@@ -93,12 +93,12 @@ final class DebiproCartTest extends TestCase {
 
 	private function invoke_types_are_compatible(
 		DebiProFinancingType $reference,
-		DebiProFinancingType $new
+		DebiProFinancingType $incoming
 	): bool {
 		$method = new \ReflectionMethod( DEBIPRO_Cart::class, 'types_are_compatible' );
 		$method->setAccessible( true );
 
-		return (bool) $method->invoke( null, $reference, $new );
+		return (bool) $method->invoke( null, $reference, $incoming );
 	}
 
 	/** @param array<string, array{product_id: int}> $items */
@@ -114,10 +114,10 @@ final class DebiproCartTest extends TestCase {
 	 */
 	public function test_types_are_compatible_matrix(
 		DebiProFinancingType $reference,
-		DebiProFinancingType $new,
+		DebiProFinancingType $incoming,
 		bool $expected
 	): void {
-		$this->assertSame( $expected, $this->invoke_types_are_compatible( $reference, $new ) );
+		$this->assertSame( $expected, $this->invoke_types_are_compatible( $reference, $incoming ) );
 	}
 
 	public function provide_type_compatibility_matrix(): array {
@@ -129,13 +129,13 @@ final class DebiproCartTest extends TestCase {
 
 		$cases = array();
 		foreach ( $exclusive as $reference ) {
-			foreach ( $exclusive as $new ) {
+			foreach ( $exclusive as $incoming ) {
 				$expected = DebiProFinancingType::OneTimePayment === $reference
-					&& DebiProFinancingType::OneTimePayment === $new;
+					&& DebiProFinancingType::OneTimePayment === $incoming;
 
-				$cases[ $reference->value . '_with_' . $new->value ] = array(
+				$cases[ $reference->value . '_with_' . $incoming->value ] = array(
 					$reference,
-					$new,
+					$incoming,
 					$expected,
 				);
 			}
@@ -203,17 +203,17 @@ final class DebiproCartTest extends TestCase {
 		$adding_exclusive   = 'You cannot add a subscription or installment product together with other products. Please empty the cart first.';
 
 		return array(
-			'one_time_then_subscription' => array(
+			'one_time_then_subscription'    => array(
 				array( 'line' => array( 'product_id' => self::PRODUCT_ONE_TIME_A ) ),
 				self::PRODUCT_SUBSCRIPTION,
 				$adding_exclusive,
 			),
-			'one_time_then_installment' => array(
+			'one_time_then_installment'     => array(
 				array( 'line' => array( 'product_id' => self::PRODUCT_ONE_TIME_A ) ),
 				self::PRODUCT_INSTALLMENT,
 				$adding_exclusive,
 			),
-			'subscription_then_one_time' => array(
+			'subscription_then_one_time'    => array(
 				array( 'line' => array( 'product_id' => self::PRODUCT_SUBSCRIPTION ) ),
 				self::PRODUCT_ONE_TIME_A,
 				$cart_has_exclusive,
@@ -223,7 +223,7 @@ final class DebiproCartTest extends TestCase {
 				self::PRODUCT_INSTALLMENT,
 				$cart_has_exclusive,
 			),
-			'installment_then_one_time' => array(
+			'installment_then_one_time'     => array(
 				array( 'line' => array( 'product_id' => self::PRODUCT_INSTALLMENT ) ),
 				self::PRODUCT_ONE_TIME_A,
 				$cart_has_exclusive,
