@@ -59,10 +59,6 @@ rsync -a \
 
 cd "$WORK/$SLUG"
 
-if [[ -f composer.json ]] && command -v composer >/dev/null 2>&1; then
-	COMPOSER_ROOT_VERSION="$VERSION" composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress
-fi
-
 if [[ -f src/index.js || -f src/index.jsx || -f src/index.ts ]]; then
 	if ! command -v npm >/dev/null 2>&1; then
 		echo "npm is required to build JS assets (src/index.* detected)." >&2
