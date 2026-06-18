@@ -71,9 +71,15 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             return;
         }
 
+        wp_enqueue_style(
+            'debipro-checkout',
+            DEBIPRO_PLUGIN_URL . 'assets/css/checkout-classic.css',
+            array(),
+            DEBIPRO_PLUGIN_VERSION
+        );
         wp_enqueue_script(
             'debipro-checkout',
-            DEBIPRO_PLUGIN_URL . 'assets/js/checkout-element.js',
+            DEBIPRO_PLUGIN_URL . 'assets/js/checkout-classic.js',
             array('jquery'),
             DEBIPRO_PLUGIN_VERSION,
             true
@@ -94,8 +100,9 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                     'perMonth'           => __('Month', 'debi-payment-for-woocommerce'),
                     'noInterest'         => __('interest-free', 'debi-payment-for-woocommerce'),
                     'total'              => __('Total', 'debi-payment-for-woocommerce'),
-                    'selectInstallments' => __('Select the number of installments', 'debi-payment-for-woocommerce'),
-                    'installmentsLabel'  => __('Installments', 'debi-payment-for-woocommerce'),
+                    'selectInstallments'   => __('Select the number of installments', 'debi-payment-for-woocommerce'),
+                    'installmentsLabel'    => __('Installments', 'debi-payment-for-woocommerce'),
+                    'installmentsRequired' => __('Please select the number of installments.', 'debi-payment-for-woocommerce'),
                 ),
             )
         );
@@ -994,35 +1001,36 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
 
     public function payment_fields()
     {
-        $financing  = $this->get_cart_financing();
-        $cart_total = (function_exists('WC') && WC()->cart) ? (float) WC()->cart->total : 0.0;
-        $f_json     = wp_json_encode(array(
+        $financing           = $this->get_cart_financing();
+        $cart_total          = (function_exists('WC') && WC()->cart) ? (float) WC()->cart->total : 0.0;
+        $installment_options = $this->get_installment_options_for_cart();
+        $f_json              = wp_json_encode(array(
             'type'             => $financing['type']->value,
             'monthly_interest' => $financing['monthly_interest'],
             'surcharge'        => $financing['surcharge'],
             'installments'     => $financing['installments'],
             'max_installments' => $financing['max_installments'],
         ));
+        $options_json        = wp_json_encode($installment_options);
 ?>
 
-            <fieldset>
+            <fieldset class="debipro-payment-fields">
                 <?php echo wp_kses_post($this->get_description()); ?>
 
-                <?php // JS (checkout-element.js) renders the installment plan UI here, reading fresh data from data attributes. ?>
+                <?php // checkout-classic.js renders the installment plan UI here, reading fresh data from data attributes. ?>
                 <div id="debipro-installment-ui"
                      data-financing="<?php echo esc_attr($f_json); ?>"
-                     data-cart-total="<?php echo esc_attr($cart_total); ?>">
+                     data-cart-total="<?php echo esc_attr($cart_total); ?>"
+                     data-installment-options="<?php echo esc_attr($options_json); ?>">
                 </div>
 
-                <p class="form-row form-row-wide">
-                    <label><?php esc_html_e('Card', 'debi-payment-for-woocommerce'); ?> <span class="required">*</span></label>
-                    <?php // js.debi.pro mounts the secure card element here (see assets/js/checkout-element.js). ?>
-                    <div id="debipro-card-element"></div>
-                    <span id="debipro-card-errors" class="debipro-card-errors" role="alert" aria-live="polite"></span>
-                    <input type="hidden" id="debipro-payment-method-token" name="debipro-payment_method_token" value="" />
-                    <input type="hidden" id="debipro_card_last_4_digits" name="debipro-card_last_four" value="" />
-                    <input type="hidden" id="debipro-cuotas" name="<?php echo esc_attr($this->id); ?>-cuotas" value="" />
-                </p>
+                <?php // js.debi.pro mounts the secure card element here (see assets/js/checkout-classic.js). ?>
+                <div id="debipro-card-element" class="debipro-card-element"></div>
+                <span id="debipro-card-errors" class="debipro-card-errors" role="alert" aria-live="polite"></span>
+
+                <input type="hidden" id="debipro-payment-method-token" name="debipro-payment_method_token" value="" />
+                <input type="hidden" id="debipro_card_last_4_digits" name="debipro-card_last_four" value="" />
+                <input type="hidden" id="debipro-cuotas" name="<?php echo esc_attr($this->id); ?>-cuotas" value="" />
 
                 <div class="clear"></div>
 
