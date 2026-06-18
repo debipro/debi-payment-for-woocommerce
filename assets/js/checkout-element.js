@@ -8,7 +8,11 @@
  * charges the token via the Debi PHP SDK.
  *
  * Config is injected by wp_localize_script as `debiproCheckout`:
- *   { sdkUrl, publishableKey, i18n: { ... } }
+ *   { sdkUrl, publishableKey, locale, i18n: { ... } }
+ *
+ * Financing data (type, interest, surcharge, installments) is embedded per-render
+ * in the #debipro-installment-ui element as data-financing / data-cart-total
+ * attributes, so it stays fresh after WooCommerce's updated_checkout AJAX.
  */
 (function ($) {
   "use strict";
@@ -29,6 +33,136 @@
   var mountedNode = null;
   var token = "";
 
+  // ---------------------------------------------------------------------------
+  // Installment UI
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Compound-interest financed total: period 1 has no interest; from period 2
+   * onwards the base grows by the monthly rate. Matches PHP's financed_total().
+   */
+  function financedTotal(base, n, rate) {
+    if (n <= 1 || rate === 0) {
+      return base;
+    }
+    return base * Math.pow(1 + rate / 100, n - 1);
+  }
+
+  /**
+   * Format a number as Argentine locale currency (comma decimal, space thousands).
+   * Matches PHP's number_format($x, 2, ',', ' ').
+   */
+  function formatAmount(amount) {
+    var parts = amount.toFixed(2).split(".");
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    return parts[0] + "," + parts[1];
+  }
+
+  /**
+   * Build the installment plan label for a given count.
+   */
+  function installmentLabel(n, quota, total, interest, surcharge) {
+    var noFee = interest === 0 && surcharge === 0;
+    var suffix = noFee
+      ? " (" + (i18n.noInterest || "sin interés") + ")"
+      : " (" + (i18n.total || "total") + " $ " + formatAmount(total) + ")";
+    return (
+      n +
+      " cuota" +
+      (n > 1 ? "s" : "") +
+      " de $ " +
+      formatAmount(quota) +
+      suffix
+    );
+  }
+
+  /**
+   * Render the installment/plan UI below the description and above the card.
+   * Reads fresh financing data from data-financing / data-cart-total attributes
+   * so it stays accurate after updated_checkout re-renders the payment fields.
+   */
+  function renderInstallmentUI() {
+    var container = document.getElementById("debipro-installment-ui");
+    if (!container) {
+      return;
+    }
+
+    var f, cartTotal;
+    try {
+      f = JSON.parse(container.getAttribute("data-financing") || "{}");
+      cartTotal = parseFloat(container.getAttribute("data-cart-total") || "0");
+    } catch (e) {
+      return;
+    }
+
+    var surcharge = f.surcharge || 0;
+    var interest  = f.monthly_interest || 0;
+    var base      = cartTotal * (1 + surcharge / 100);
+    var $cuotas   = $("#debipro-cuotas");
+
+    // ---- Open-ended subscription ----
+    if (f.type === "subscription") {
+      container.innerHTML =
+        '<p class="debipro-plan-info">' +
+        "<strong>" +
+        (i18n.recurringPayment || "Pago recurrente mensual") +
+        ":</strong> $ " +
+        formatAmount(base) +
+        " / " +
+        (i18n.perMonth || "mes") +
+        "</p>";
+      $cuotas.val("");
+      return;
+    }
+
+    // ---- Fixed installments (configured per product) ----
+    if (f.installments) {
+      var n     = f.installments;
+      var fin   = financedTotal(base, n, interest);
+      var quota = fin / n;
+      container.innerHTML =
+        '<p class="debipro-plan-info"><strong>' +
+        installmentLabel(n, quota, fin, interest, surcharge) +
+        "</strong></p>";
+      $cuotas.val(String(n));
+      return;
+    }
+
+    // ---- Customer-selectable installments ----
+    if (f.max_installments) {
+      var opts =
+        '<option value="" disabled selected>' +
+        (i18n.selectInstallments || "Seleccioná el número de cuotas") +
+        "</option>";
+      for (var i = 1; i <= f.max_installments; i++) {
+        var finI   = financedTotal(base, i, interest);
+        var quotaI = finI / i;
+        opts +=
+          '<option value="' +
+          i +
+          '">' +
+          installmentLabel(i, quotaI, finI, interest, surcharge) +
+          "</option>";
+      }
+      container.innerHTML =
+        '<p class="form-row form-row-wide">' +
+        '<label for="debipro-cuotas-sel">' +
+        (i18n.installmentsLabel || "Cuotas") +
+        ' <span class="required">*</span></label>' +
+        '<select id="debipro-cuotas-sel">' +
+        opts +
+        "</select></p>";
+
+      $("#debipro-cuotas-sel").on("change", function () {
+        $cuotas.val(this.value);
+      });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // SDK / card element
+  // ---------------------------------------------------------------------------
+
   /** Inject the js.debi.pro CDN script once and resolve `window.Debi`. */
   function loadSdk() {
     if (window.Debi) {
@@ -44,13 +178,13 @@
           resolve(window.Debi);
         } else {
           reject(
-            new Error(i18n.loadError || "The card form could not be loaded."),
+            new Error(i18n.loadError || "The card form could not be loaded.")
           );
         }
       };
       var onError = function () {
         reject(
-          new Error(i18n.loadError || "The card form could not be loaded."),
+          new Error(i18n.loadError || "The card form could not be loaded.")
         );
       };
       if (existing) {
@@ -88,19 +222,16 @@
     if (!node) {
       return;
     }
-    // Already mounted into this exact node: nothing to do.
     if (node === mountedNode && element) {
       return;
     }
 
-    // The node was replaced by a checkout refresh: drop the stale element.
     destroyElement();
     clearToken();
     mountedNode = node;
 
     loadSdk()
       .then(function (Debi) {
-        // The node may have been replaced again while the SDK loaded.
         if (mountedNode !== node || !document.body.contains(node)) {
           return;
         }
@@ -122,7 +253,6 @@
           },
         });
         element.on("change", function (state) {
-          // Any edit invalidates a previously-issued token.
           clearToken();
           showError(state && state.error ? state.error.message : "");
         });
@@ -152,14 +282,16 @@
   }
 
   /**
-   * Flatten Debi's tokenization error into a human message. Field-level reasons
-   * live in `error.raw.errors` (a { field: string[] } map or array of { message }).
+   * Flatten Debi's tokenization error into a human message.
    */
   function describeError(error) {
     if (!error) {
       return i18n.genericError || "The card could not be validated.";
     }
     var raw = error.raw;
+    if (raw && (raw.status === 429 || raw.statusCode === 429)) {
+      return i18n.rateLimitError || "The payment service is temporarily busy. Please wait a moment and try again.";
+    }
     var messages = [];
     var collect = function (value) {
       if (typeof value === "string") {
@@ -208,7 +340,7 @@
           $("#debipro-payment-method-token").val(token);
           var lastFour =
             result.token.card && result.token.card.last_four_digits;
-          $("#debipro-card-last-four").val(lastFour || "");
+          $("#debipro_card_last_4_digits").val(lastFour || "");
           showError("");
           $form.trigger("submit");
         } else {
@@ -217,7 +349,12 @@
         }
       })
       .catch(function (err) {
-        showError(err && err.message ? err.message : i18n.genericError);
+        var raw = (err && err.raw) || {};
+        var isRateLimit = (err && (err.status === 429 || err.statusCode === 429)) ||
+          raw.status === 429 || raw.statusCode === 429;
+        showError(isRateLimit
+          ? (i18n.rateLimitError || "The payment service is temporarily busy. Please wait a moment and try again.")
+          : (err && err.message ? err.message : i18n.genericError));
         unblock($form);
       });
   }
@@ -233,20 +370,26 @@
     $form.removeClass("processing").unblock();
   }
 
+  // ---------------------------------------------------------------------------
+  // Bootstrap
+  // ---------------------------------------------------------------------------
+
   $(function () {
+    renderInstallmentUI();
     mountIfNeeded();
 
     $(document.body).on("updated_checkout", function () {
+      renderInstallmentUI();
       mountIfNeeded();
     });
 
     $(document.body).on("payment_method_selected", function () {
       if (isDebiSelected()) {
+        renderInstallmentUI();
         mountIfNeeded();
       }
     });
 
-    // Gate the classic checkout submit: tokenise first, then let it through.
     $("form.checkout").on("checkout_place_order_debipro", function () {
       if (token) {
         return true;

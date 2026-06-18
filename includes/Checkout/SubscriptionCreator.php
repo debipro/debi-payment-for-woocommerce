@@ -16,12 +16,15 @@ use DebiPro\Infrastructure\DebiClientFactory;
  * vendored Debi PHP SDK.
  *
  * Debi has no one-off "charge": payment is modelled as a subscription (the
- * installment plan), so this service creates one. The card is tokenised in the
- * browser by js.debi.pro (strict mode), so we only ever receive a payment-method
- * token id (never the PAN) and chain two idempotent API calls:
+ * installment plan), so this service creates one. The card is collected in the
+ * browser by js.debi.pro (strict mode); confirmPaymentMethod() creates the
+ * payment method server-side via the publishable key and returns its persistent
+ * id directly — no server-side conversion step is needed. We chain two idempotent
+ * API calls after that:
  *
- *   1. customers.create     (reused per logged-in WP user via `id_customer_debi`)
- *   2. subscriptions.create (the installment plan, billed monthly)
+ *   1. customers.create          (reused per logged-in WP user via `id_customer_debi`)
+ *   2. paymentMethods.attach     (links the PM to the customer for recurring charges)
+ *   3. subscriptions.create      (the installment plan, billed monthly)
  *
  * Idempotency keys are derived from the blog + order/user so a retried request
  * (flaky network, double-submit) never creates a duplicate customer or a second
@@ -55,31 +58,40 @@ final class SubscriptionCreator {
 		if ( '' === $token ) {
 			throw new \RuntimeException( 'Missing payment method token.' );
 		}
-		if ( $installments < 1 || $amount <= 0 ) {
-			throw new \RuntimeException( 'Invalid installment plan.' );
+		if ( $amount <= 0 ) {
+			throw new \RuntimeException( 'Invalid installment amount.' );
 		}
 
 		$client  = DebiClientFactory::create();
 		$blog_id = (int) ( function_exists( 'get_current_blog_id' ) ? get_current_blog_id() : 1 );
 		$user_id = (int) $order->get_customer_id();
 
-		$customer_id = self::resolve_customer( $client, $customer, $blog_id, $user_id, (int) $order->get_id() );
+		$order_id    = (int) $order->get_id();
+		$customer_id = self::resolve_customer( $client, $customer, $blog_id, $user_id, $order_id );
+
 		if ( '' === $customer_id ) {
 			throw new \RuntimeException( 'Could not register the Debi customer.' );
 		}
 
+		self::attach_payment_method( $client, $token, $customer_id, $blog_id, $order_id );
+
+		$params = array(
+			'amount'            => $amount,
+			'description'       => $description,
+			'payment_method_id' => $token,
+			'interval_unit'     => 'monthly',
+			'interval'          => 1,
+			'day_of_month'      => self::billing_day_of_month(),
+			'customer_id'       => $customer_id,
+		);
+
+		if ( $installments > 0 ) {
+			$params['count'] = $installments;
+		}
+
 		$subscription = $client->subscriptions->create(
-			array(
-				'amount'            => $amount,
-				'description'       => $description,
-				'payment_method_id' => $token,
-				'interval_unit'     => 'monthly',
-				'interval'          => 1,
-				'day_of_month'      => self::billing_day_of_month(),
-				'count'             => $installments,
-				'customer_id'       => $customer_id,
-			),
-			array( 'idempotency_key' => sprintf( 'debipro-sub-%d-%d', $blog_id, (int) $order->get_id() ) )
+			$params,
+			array( 'idempotency_key' => sprintf( 'debipro-sub-%d-%d', $blog_id, $order_id ) )
 		);
 
 		$subscription_id = isset( $subscription->id ) ? (string) $subscription->id : '';
@@ -141,5 +153,13 @@ final class SubscriptionCreator {
 		return function_exists( 'current_time' )
 			? (int) current_time( 'j' )
 			: (int) gmdate( 'j' );
+	}
+
+	private static function attach_payment_method( DebiClient $client, string $token, string $customer_id, int $blog_id, int $order_id ): void {
+		$client->paymentMethods->attach(
+			$token,
+			$customer_id,
+			array( 'idempotency_key' => sprintf( 'debipro-attach-%d-%d', $blog_id, $order_id ) )
+		);
 	}
 }
