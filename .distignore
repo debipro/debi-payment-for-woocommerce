@@ -40,7 +40,7 @@ phpunit.xml
 # Tests + dev scripts + JS sources (built output ships from build/)
 tests
 bin
-src
+/src
 
 # Editor / OS noise
 .editorconfig
