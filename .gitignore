@@ -23,6 +23,7 @@ node_modules/
 
 # Build output (rebuilt by CI on release; never committed)
 build/
+dist/
 
 # Tooling caches
 .phpunit.result.cache
