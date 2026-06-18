@@ -117,8 +117,12 @@ function debipro_add_payment_gateway($gateways) {
 	return $gateways;
 }
 
-add_action('plugins_loaded', 'debipro_init_payment_gateway', 10);
+add_action('plugins_loaded', 'debipro_init_payment_gateway', 11);
 function debipro_init_payment_gateway() {
+	if (!class_exists('WC_Payment_Gateway')) {
+		return;
+	}
+
 	require_once plugin_dir_path(__FILE__) . 'includes/class-debipro-product-meta.php';
 	DEBIPRO_Product_Meta::init();
 
