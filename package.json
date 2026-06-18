@@ -11,6 +11,9 @@
     },
     "scripts": {
         "start": "rm -f .wp-env.override.json && wp-env start",
+        "start:classic": "cp .wp-env.classic.json .wp-env.override.json && wp-env start",
+        "stop:classic": "wp-env stop && rm -f .wp-env.override.json",
+        "reset:classic": "cp .wp-env.classic.json .wp-env.override.json && wp-env destroy && wp-env start",
         "stop": "wp-env stop && rm -f .wp-env.override.json",
         "reset": "rm -f .wp-env.override.json && wp-env destroy && wp-env start",
         "start:multisite": "cp .wp-env.multisite.json .wp-env.override.json && wp-env start",
@@ -27,8 +30,8 @@
         "zip": "npm run package"
     },
     "devDependencies": {
+        "@babel/runtime": "^8.0.0",
         "@wordpress/env": "^10.0.0",
         "@wordpress/scripts": "^28.0.0"
-    },
-    "dependencies": {}
+    }
 }
