@@ -16,6 +16,7 @@
 
 # Local dev env
 .wp-env.json
+.wp-env.classic.json
 .wp-env.multisite.json
 .wp-env.override.json
 .wp-env
