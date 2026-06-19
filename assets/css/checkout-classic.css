@@ -1,0 +1,82 @@
+/**
+ * Classic WooCommerce checkout — Debi payment element layout fixes.
+ *
+ * Mirrors Blocks checkout spacing and neutralizes WooCommerce payment_box
+ * styles that leak into the Debi SDK (button width, input max-width, float).
+ */
+
+.woocommerce-checkout #payment .payment_method_debipro .debipro-payment-fields {
+	padding: 16px;
+	width: 100%;
+	border: 0;
+	margin: 0;
+	min-width: 0;
+	box-sizing: border-box;
+}
+
+.woocommerce-checkout #payment .payment_method_debipro #debipro-installment-ui select,
+.woocommerce-checkout #payment .payment_method_debipro #debipro-cuotas-sel {
+	width: 100%;
+	margin-top: 4px;
+	box-sizing: border-box;
+}
+
+.woocommerce-checkout #payment .payment_method_debipro #debipro-card-element {
+	display: block;
+	width: 100%;
+	margin-top: 12px;
+	box-sizing: border-box;
+}
+
+/*
+ * The payment-method element renders tabs on the root node and mounts card/CBU
+ * fields inside .debi-element__slot > div. That inner mount must stretch to the
+ * same width as the tab row or the input (and its brand badge) look narrower.
+ */
+.woocommerce-checkout #payment .payment_method_debipro #debipro-card-element .debi-element,
+.woocommerce-checkout #payment .payment_method_debipro #debipro-card-element .debi-element__slot,
+.woocommerce-checkout #payment .payment_method_debipro #debipro-card-element .debi-element__slot > div,
+.woocommerce-checkout #payment .payment_method_debipro #debipro-card-element .debi-element__field,
+.woocommerce-checkout #payment .payment_method_debipro #debipro-card-element .debi-element__input-wrapper {
+	width: 100%;
+	max-width: 100%;
+	min-width: 0;
+	box-sizing: border-box;
+}
+
+.woocommerce-checkout #payment .payment_method_debipro #debipro-card-element .debi-element__input-wrapper {
+	display: flex;
+	align-items: center;
+}
+
+/* Tabs Tarjeta/CBU: WC must not force full-width buttons inside the flex row. */
+.woocommerce-checkout #payment .payment_method_debipro #debipro-card-element .debi-element__type-button {
+	width: auto !important;
+	flex: 1 1 0 !important;
+	float: none !important;
+}
+
+/* Card/CBU input: WC must not cap max-width, float, or add margin to the SDK input.
+ * woocommerce.css sets `#payment ul.payment_methods li input { margin: 0 1em 0 0 }`
+ * which is intended for gateway radio buttons but leaks onto this input and makes
+ * it appear ~1em narrower than the tab-buttons row above it. */
+.woocommerce-checkout #payment .payment_method_debipro #debipro-card-element input.debi-element__input {
+	flex: 1 1 auto;
+	width: 100% !important;
+	max-width: none !important;
+	min-width: 0 !important;
+	margin: 0 !important;
+	float: none !important;
+	box-sizing: border-box !important;
+}
+
+/* Keep the network badge inside the input border (SDK overlays it absolutely). */
+.woocommerce-checkout #payment .payment_method_debipro #debipro-card-element .debi-element__input-wrapper:has(.debi-element__brand-badge) input.debi-element__input {
+	padding-right: calc(var(--debi-input-padding-x, 0.75rem) + 3.6em) !important;
+}
+
+.woocommerce-checkout #payment .payment_method_debipro .debipro-card-errors {
+	display: block;
+	margin-top: 0.5em;
+	color: #c0392b;
+}

@@ -4,7 +4,8 @@
     "phpVersion": "8.1",
     "multisite": true,
     "plugins": [
-        "https://downloads.wordpress.org/plugin/woocommerce.latest-stable.zip"
+        "https://downloads.wordpress.org/plugin/woocommerce.latest-stable.zip",
+        "https://downloads.wordpress.org/plugin/plugin-check.latest-stable.zip"
     ],
     "mappings": {
         "wp-content/plugins/debi-payment-for-woocommerce": "."

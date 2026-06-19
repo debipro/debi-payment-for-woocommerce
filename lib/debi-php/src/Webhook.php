@@ -40,15 +40,17 @@ final class Webhook
         try {
             $decoded = json_decode($payload, true, flags: JSON_THROW_ON_ERROR);
         } catch (\JsonException $e) {
+            // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped
             throw new SignatureVerificationException(
                 'Webhook payload is not valid JSON: ' . $e->getMessage(),
                 0,
                 $e,
             );
+            // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         if (!is_array($decoded)) {
-            throw new SignatureVerificationException('Webhook payload must decode to a JSON object.');
+            throw new SignatureVerificationException('Webhook payload must decode to a JSON object.'); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         return Event::constructFrom($decoded);

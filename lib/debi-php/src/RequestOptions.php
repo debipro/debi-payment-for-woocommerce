@@ -73,7 +73,7 @@ final class RequestOptions
             return null;
         }
         if (!is_string($v)) {
-            throw new \InvalidArgumentException("RequestOptions `{$key}` must be a string.");
+            throw new \InvalidArgumentException("RequestOptions `{$key}` must be a string."); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         return $v;
     }

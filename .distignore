@@ -2,8 +2,8 @@
 # Read by 10up/action-wordpress-plugin-deploy and by `rsync --exclude-from`.
 # Anything listed here is dev-only and never ships to end users.
 #
-# Note: vendor/ and build/ are NOT excluded — they hold bundled production
-# dependencies (debi-php, debi-js) generated fresh by .github/workflows/release.yml.
+# Note: debi-php ships from lib/debi-php/ (custom autoloader). vendor/ is dev-only
+# (PHPUnit, PHPCS) and must not appear in the release ZIP without composer.json.
 
 # VCS
 .git
@@ -16,6 +16,7 @@
 
 # Local dev env
 .wp-env.json
+.wp-env.classic.json
 .wp-env.multisite.json
 .wp-env.override.json
 .wp-env
@@ -23,7 +24,8 @@
 .env.example
 .env.local
 
-# Package managers (source manifests, not the resolved deps)
+# Package managers (dev-only; runtime uses lib/debi-php/ + spl_autoload_register)
+vendor/
 composer.json
 composer.lock
 package.json
@@ -39,7 +41,7 @@ phpunit.xml
 # Tests + dev scripts + JS sources (built output ships from build/)
 tests
 bin
-src
+/src
 
 # Editor / OS noise
 .editorconfig

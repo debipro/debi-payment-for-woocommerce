@@ -71,9 +71,15 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             return;
         }
 
+        wp_enqueue_style(
+            'debipro-checkout',
+            DEBIPRO_PLUGIN_URL . 'assets/css/checkout-classic.css',
+            array(),
+            DEBIPRO_PLUGIN_VERSION
+        );
         wp_enqueue_script(
             'debipro-checkout',
-            DEBIPRO_PLUGIN_URL . 'assets/js/checkout-element.js',
+            DEBIPRO_PLUGIN_URL . 'assets/js/checkout-classic.js',
             array('jquery'),
             DEBIPRO_PLUGIN_VERSION,
             true
@@ -94,8 +100,9 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                     'perMonth'           => __('Month', 'debi-payment-for-woocommerce'),
                     'noInterest'         => __('interest-free', 'debi-payment-for-woocommerce'),
                     'total'              => __('Total', 'debi-payment-for-woocommerce'),
-                    'selectInstallments' => __('Select the number of installments', 'debi-payment-for-woocommerce'),
-                    'installmentsLabel'  => __('Installments', 'debi-payment-for-woocommerce'),
+                    'selectInstallments'   => __('Select the number of installments', 'debi-payment-for-woocommerce'),
+                    'installmentsLabel'    => __('Installments', 'debi-payment-for-woocommerce'),
+                    'installmentsRequired' => __('Please select the number of installments.', 'debi-payment-for-woocommerce'),
                 ),
             )
         );
@@ -414,7 +421,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             wp_send_json_error(array('message' => __('Automatic setup is unavailable on local sites.', 'debi-payment-for-woocommerce')));
         }
 
-        $secret = isset($_POST['secret']) ? trim((string) wp_unslash($_POST['secret'])) : '';
+        $secret = isset($_POST['secret']) ? trim(sanitize_text_field(wp_unslash($_POST['secret']))) : '';
         if ('' === $secret) {
             $secret = self::get_gateway_setting('secret_key');
         }
@@ -669,8 +676,8 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             wp_send_json_error(array('message' => __('You are not allowed to do this.', 'debi-payment-for-woocommerce')), 403);
         }
 
-        $secret      = isset($_POST['secret']) ? trim((string) wp_unslash($_POST['secret'])) : '';
-        $publishable = isset($_POST['publishable']) ? trim((string) wp_unslash($_POST['publishable'])) : '';
+        $secret      = isset($_POST['secret']) ? trim(sanitize_text_field(wp_unslash($_POST['secret']))) : '';
+        $publishable = isset($_POST['publishable']) ? trim(sanitize_text_field(wp_unslash($_POST['publishable']))) : '';
 
         if ('' === $secret && '' === $publishable) {
             wp_send_json_error(array('message' => __('Enter at least one key before testing.', 'debi-payment-for-woocommerce')));
@@ -807,6 +814,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         if ('woocommerce_page_wc-settings' !== $hook) {
             return;
         }
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only admin page filter, no state change.
         $section = isset($_GET['section']) ? sanitize_text_field(wp_unslash($_GET['section'])) : '';
         if ('debipro' !== $section) {
             return;
@@ -851,13 +859,15 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             return false;
         }
 
-        // The card was tokenised in the browser by js.debi.pro; we only ever
-        // receive a single-use payment-method token id, never the PAN.
+        // WooCommerce verifies the checkout nonce (woocommerce-process_checkout) before
+        // dispatching to process_payment(); our code reads the tokenised card data that
+        // js.debi.pro places into hidden fields — never the PAN itself.
+        // phpcs:disable WordPress.Security.NonceVerification.Missing
         $token = isset($_POST['debipro-payment_method_token'])
             ? sanitize_text_field(wp_unslash($_POST['debipro-payment_method_token']))
             : '';
         if ('' === $token) {
-            throw new \Exception(__('Please enter your card details before paying.', 'debi-payment-for-woocommerce'));
+            throw new \Exception(esc_html__('Please enter your card details before paying.', 'debi-payment-for-woocommerce'));
         }
 
         $financing                  = $this->get_cart_financing();
@@ -869,7 +879,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             && $max_inst !== null
             && $user_selected_installments > $max_inst
         ) {
-            throw new \Exception(__('Invalid number of installments selected.', 'debi-payment-for-woocommerce'));
+            throw new \Exception(esc_html__('Invalid number of installments selected.', 'debi-payment-for-woocommerce'));
         }
 
         $installments       = self::resolve_installments($order, $user_selected_installments);
@@ -879,6 +889,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
 
         $identification = isset($_POST['participant_id']) ? sanitize_text_field(wp_unslash($_POST['participant_id'])) : '';
         $last_four      = isset($_POST['debipro-card_last_four']) ? sanitize_text_field(wp_unslash($_POST['debipro-card_last_four'])) : '';
+        // phpcs:enable WordPress.Security.NonceVerification.Missing
 
         $order->update_meta_data('_debipro_final_price', $final_price);
         $order->update_meta_data('_debipro_installment_count', $installments);
@@ -908,12 +919,15 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         } catch (\Debi\Exception\RateLimitException $e) {
             $this->log_error('Rate limit hit for order ' . (int) $order_id . ': ' . $e->getMessage());
             wc_add_notice(__('The payment service is temporarily busy. Please wait a moment and try again.', 'debi-payment-for-woocommerce'), 'error');
+            return false;
         } catch (\Debi\Exception\ExceptionInterface $e) {
             $this->log_error('Charge declined for order ' . (int) $order_id . ': ' . $e->getMessage());
             wc_add_notice(__('The payment was declined or could not be processed. Please check your card and try again.', 'debi-payment-for-woocommerce'), 'error');
+            return false;
         } catch (\Throwable $e) {
             $this->log_error('Charge failed for order ' . (int) $order_id . ': ' . $e->getMessage());
             wc_add_notice(__('We could not process the payment. Please try again in a moment.', 'debi-payment-for-woocommerce'), 'error');
+            return false;
         }
 
         // Stored via the order data store (HPOS-safe): the webhook handler looks
@@ -994,35 +1008,36 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
 
     public function payment_fields()
     {
-        $financing  = $this->get_cart_financing();
-        $cart_total = (function_exists('WC') && WC()->cart) ? (float) WC()->cart->total : 0.0;
-        $f_json     = wp_json_encode(array(
+        $financing           = $this->get_cart_financing();
+        $cart_total          = (function_exists('WC') && WC()->cart) ? (float) WC()->cart->total : 0.0;
+        $installment_options = $this->get_installment_options_for_cart();
+        $f_json              = wp_json_encode(array(
             'type'             => $financing['type']->value,
             'monthly_interest' => $financing['monthly_interest'],
             'surcharge'        => $financing['surcharge'],
             'installments'     => $financing['installments'],
             'max_installments' => $financing['max_installments'],
         ));
+        $options_json        = wp_json_encode($installment_options);
 ?>
 
-            <fieldset>
+            <fieldset class="debipro-payment-fields">
                 <?php echo wp_kses_post($this->get_description()); ?>
 
-                <?php // JS (checkout-element.js) renders the installment plan UI here, reading fresh data from data attributes. ?>
+                <?php // checkout-classic.js renders the installment plan UI here, reading fresh data from data attributes. ?>
                 <div id="debipro-installment-ui"
                      data-financing="<?php echo esc_attr($f_json); ?>"
-                     data-cart-total="<?php echo esc_attr($cart_total); ?>">
+                     data-cart-total="<?php echo esc_attr($cart_total); ?>"
+                     data-installment-options="<?php echo esc_attr($options_json); ?>">
                 </div>
 
-                <p class="form-row form-row-wide">
-                    <label><?php esc_html_e('Card', 'debi-payment-for-woocommerce'); ?> <span class="required">*</span></label>
-                    <?php // js.debi.pro mounts the secure card element here (see assets/js/checkout-element.js). ?>
-                    <div id="debipro-card-element"></div>
-                    <span id="debipro-card-errors" class="debipro-card-errors" role="alert" aria-live="polite"></span>
-                    <input type="hidden" id="debipro-payment-method-token" name="debipro-payment_method_token" value="" />
-                    <input type="hidden" id="debipro_card_last_4_digits" name="debipro-card_last_four" value="" />
-                    <input type="hidden" id="debipro-cuotas" name="<?php echo esc_attr($this->id); ?>-cuotas" value="" />
-                </p>
+                <?php // js.debi.pro mounts the secure card element here (see assets/js/checkout-classic.js). ?>
+                <div id="debipro-card-element" class="debipro-card-element"></div>
+                <span id="debipro-card-errors" class="debipro-card-errors" role="alert" aria-live="polite"></span>
+
+                <input type="hidden" id="debipro-payment-method-token" name="debipro-payment_method_token" value="" />
+                <input type="hidden" id="debipro_card_last_4_digits" name="debipro-card_last_four" value="" />
+                <input type="hidden" id="debipro-cuotas" name="<?php echo esc_attr($this->id); ?>-cuotas" value="" />
 
                 <div class="clear"></div>
 
@@ -1047,7 +1062,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
 
         if(!$last_item) {
             throw new \Exception(
-                __( 'Could not determine product from order; order contains no valid items.', 'debi-payment-for-woocommerce' )
+                esc_html__( 'Could not determine product from order; order contains no valid items.', 'debi-payment-for-woocommerce' )
             );
         }
 
@@ -1070,7 +1085,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
 
             if ( $requested === null ) {
                 throw new \Exception(
-                    __( 'Requested number of installments was not provided.', 'debi-payment-for-woocommerce' )
+                    esc_html__( 'Requested number of installments was not provided.', 'debi-payment-for-woocommerce' )
                 );
             }
 
@@ -1079,13 +1094,14 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             
             throw new \Exception(
                 sprintf(
-                __( 'Requested installments (%1$d) exceed the product maximum (%2$d).', 'debi-payment-for-woocommerce' ),
-                $requested,
-                $max_installments)
+                /* translators: 1: requested installment count, 2: product maximum installments. */
+                esc_html__( 'Requested installments (%1$d) exceed the product maximum (%2$d).', 'debi-payment-for-woocommerce' ),
+                (int) $requested,
+                (int) $max_installments)
             );
         }
         
-        throw new \Exception(__( 'Product financing configuration is invalid.', 'debi-payment-for-woocommerce' ));
+        throw new \Exception(esc_html__( 'Product financing configuration is invalid.', 'debi-payment-for-woocommerce' ));
     }
 
     private static function resolve_installment_amount(float $final_price, ?int $installments) {

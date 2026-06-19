@@ -11,6 +11,9 @@
     },
     "scripts": {
         "start": "rm -f .wp-env.override.json && wp-env start",
+        "start:classic": "cp .wp-env.classic.json .wp-env.override.json && wp-env start",
+        "stop:classic": "wp-env stop && rm -f .wp-env.override.json",
+        "reset:classic": "cp .wp-env.classic.json .wp-env.override.json && wp-env destroy && wp-env start",
         "stop": "wp-env stop && rm -f .wp-env.override.json",
         "reset": "rm -f .wp-env.override.json && wp-env destroy && wp-env start",
         "start:multisite": "cp .wp-env.multisite.json .wp-env.override.json && wp-env start",
@@ -22,11 +25,13 @@
         "lint:fix": "composer lint:fix",
         "test": "composer test",
         "test:integration": "wp-env run tests-cli --env-cwd=wp-content/plugins/debi-payment-for-woocommerce composer test",
-        "build": "wp-scripts build"
+        "build": "wp-scripts build",
+        "package": "bash bin/build-plugin-zip.sh",
+        "zip": "npm run package"
     },
     "devDependencies": {
+        "@babel/runtime": "^8.0.0",
         "@wordpress/env": "^10.0.0",
         "@wordpress/scripts": "^28.0.0"
-    },
-    "dependencies": {}
+    }
 }

@@ -44,9 +44,6 @@ jobs:
           node-version: "20"
           cache: "npm"
 
-      - name: Install PHP production dependencies
-        run: composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress
-
       - name: Install JS dependencies
         run: npm ci
 

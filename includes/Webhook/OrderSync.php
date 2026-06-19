@@ -96,8 +96,8 @@ final class OrderSync {
 		$orders = wc_get_orders(
 			array(
 				'limit'        => 1,
-				'meta_key'     => '_debipro_subscription_id',
-				'meta_value'   => $subscription_id,
+				'meta_key'     => '_debipro_subscription_id', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				'meta_value'   => $subscription_id, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 				'meta_compare' => '=',
 				'return'       => 'objects',
 			)
