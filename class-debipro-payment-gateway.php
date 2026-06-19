@@ -421,7 +421,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             wp_send_json_error(array('message' => __('Automatic setup is unavailable on local sites.', 'debi-payment-for-woocommerce')));
         }
 
-        $secret = isset($_POST['secret']) ? trim((string) wp_unslash($_POST['secret'])) : '';
+        $secret = isset($_POST['secret']) ? trim(sanitize_text_field(wp_unslash($_POST['secret']))) : '';
         if ('' === $secret) {
             $secret = self::get_gateway_setting('secret_key');
         }
@@ -676,8 +676,8 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             wp_send_json_error(array('message' => __('You are not allowed to do this.', 'debi-payment-for-woocommerce')), 403);
         }
 
-        $secret      = isset($_POST['secret']) ? trim((string) wp_unslash($_POST['secret'])) : '';
-        $publishable = isset($_POST['publishable']) ? trim((string) wp_unslash($_POST['publishable'])) : '';
+        $secret      = isset($_POST['secret']) ? trim(sanitize_text_field(wp_unslash($_POST['secret']))) : '';
+        $publishable = isset($_POST['publishable']) ? trim(sanitize_text_field(wp_unslash($_POST['publishable']))) : '';
 
         if ('' === $secret && '' === $publishable) {
             wp_send_json_error(array('message' => __('Enter at least one key before testing.', 'debi-payment-for-woocommerce')));
@@ -814,6 +814,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         if ('woocommerce_page_wc-settings' !== $hook) {
             return;
         }
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only admin page filter, no state change.
         $section = isset($_GET['section']) ? sanitize_text_field(wp_unslash($_GET['section'])) : '';
         if ('debipro' !== $section) {
             return;
@@ -858,8 +859,10 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             return false;
         }
 
-        // The card was tokenised in the browser by js.debi.pro; we only ever
-        // receive a single-use payment-method token id, never the PAN.
+        // WooCommerce verifies the checkout nonce (woocommerce-process_checkout) before
+        // dispatching to process_payment(); our code reads the tokenised card data that
+        // js.debi.pro places into hidden fields — never the PAN itself.
+        // phpcs:disable WordPress.Security.NonceVerification.Missing
         $token = isset($_POST['debipro-payment_method_token'])
             ? sanitize_text_field(wp_unslash($_POST['debipro-payment_method_token']))
             : '';
@@ -886,6 +889,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
 
         $identification = isset($_POST['participant_id']) ? sanitize_text_field(wp_unslash($_POST['participant_id'])) : '';
         $last_four      = isset($_POST['debipro-card_last_four']) ? sanitize_text_field(wp_unslash($_POST['debipro-card_last_four'])) : '';
+        // phpcs:enable WordPress.Security.NonceVerification.Missing
 
         $order->update_meta_data('_debipro_final_price', $final_price);
         $order->update_meta_data('_debipro_installment_count', $installments);
@@ -1090,6 +1094,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             
             throw new \Exception(
                 sprintf(
+                /* translators: 1: requested installment count, 2: product maximum installments. */
                 __( 'Requested installments (%1$d) exceed the product maximum (%2$d).', 'debi-payment-for-woocommerce' ),
                 $requested,
                 $max_installments)

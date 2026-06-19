@@ -1,8 +1,8 @@
 === Debi Payment for WooCommerce ===
 Contributors: fernandodelperal
 Tags: payment, gateway, debit, installments, subscriptions
-Requires at least: 5.6
-Tested up to: 6.8
+Requires at least: 6.5
+Tested up to: 7.0
 Stable tag: 1.1.0
 Requires PHP: 8.1
 License: GPLv2 or later

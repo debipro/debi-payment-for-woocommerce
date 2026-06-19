@@ -22,10 +22,11 @@
  * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
  * Text Domain:       debi-payment-for-woocommerce
  * Domain Path:       /languages/
- * Requires at least: 5.6
+ * Requires at least: 6.5
  * Requires PHP:      8.1
  * Requires Plugins:  woocommerce
  * WC requires at least: 3.0
+ * Tested up to:      7.0
  * WC tested up to:   9.8
  */
 
@@ -104,12 +105,16 @@ function debipro_map_locale($locale, $domain) {
 	return $locale;
 }
 
-// Load translations early
+// Load translations early.
+// load_plugin_textdomain() calls apply_filters('plugin_locale', ...) internally,
+// so debipro_map_locale() above still runs and maps es_AR → es_ES.
 add_action('plugins_loaded', 'debipro_load_textdomain', 5);
 function debipro_load_textdomain() {
-	$locale = apply_filters('plugin_locale', get_locale(), 'debi-payment-for-woocommerce');
-	$mofile = plugin_dir_path(__FILE__) . 'languages/debi-payment-for-woocommerce-' . $locale . '.mo';
-	load_textdomain('debi-payment-for-woocommerce', $mofile);
+	load_plugin_textdomain(
+		'debi-payment-for-woocommerce',
+		false,
+		dirname(plugin_basename(__FILE__)) . '/languages'
+	);
 }
 
 function debipro_add_payment_gateway($gateways) {

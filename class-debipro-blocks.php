@@ -37,7 +37,7 @@ final class DEBIPRO_Blocks_Integration extends AbstractPaymentMethodType {
 			'debi-sdk',
 			'https://js.debi.pro/v1/',
 			[],
-			null,
+			DEBIPRO_PLUGIN_VERSION,
 			true
 		);
 		wp_register_script(
