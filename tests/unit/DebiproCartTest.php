@@ -52,6 +52,7 @@ final class DebiproCartTest extends TestCase {
 				return $types[ $post_id ] ?? '';
 			}
 		);
+		Functions\when( 'metadata_exists' )->justReturn( false );
 
 		$notices = &$this->notices;
 		Functions\when( 'wc_add_notice' )->alias(

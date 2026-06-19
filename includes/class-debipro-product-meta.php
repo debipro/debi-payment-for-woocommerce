@@ -102,10 +102,10 @@ class DEBIPRO_Product_Meta {
 					array(
 						'id'                => self::INSTALL_KEY,
 						'label'             => __( 'Fixed installments', 'debi-payment-for-woocommerce' ),
-						'placeholder'       => $d['install'],
+						'placeholder'       => ( '' !== $max && is_numeric( $max ) ) ? '' : $d['install'],
 						'value'             => $install,
 						'desc_tip'          => true,
-						'description'       => __( 'Fixed number of installments. Saving will clear the "Maximum installments" field.', 'debi-payment-for-woocommerce' ),
+						'description'       => __( 'Fixed number of installments. Mutually exclusive with "Maximum installments".', 'debi-payment-for-woocommerce' ),
 						'type'              => 'number',
 						'custom_attributes' => array(
 							'min'  => 1,
@@ -118,10 +118,10 @@ class DEBIPRO_Product_Meta {
 					array(
 						'id'                => self::MAX_INST_KEY,
 						'label'             => __( 'Maximum installments', 'debi-payment-for-woocommerce' ),
-						'placeholder'       => $d['max'],
+						'placeholder'       => ( '' !== $install && is_numeric( $install ) ) ? '' : $d['max'],
 						'value'             => $max,
 						'desc_tip'          => true,
-						'description'       => __( 'The customer freely chooses between 1 and this value. Saving will clear the "Fixed installments" field.', 'debi-payment-for-woocommerce' ),
+						'description'       => __( 'The customer freely chooses between 1 and this value. Mutually exclusive with "Fixed installments".', 'debi-payment-for-woocommerce' ),
 						'type'              => 'number',
 						'custom_attributes' => array(
 							'min'  => 1,
@@ -149,39 +149,73 @@ class DEBIPRO_Product_Meta {
 			</div>
 		</div>
 		
-		<script type="text/javascript">
-		jQuery(document).ready(function($) {
-			
-			function toggleDebiFields() {
-				var $typeSelect = $('#<?php echo esc_js( self::TYPE_KEY ); ?>');
-				var $fieldsToToggle = $(
-					'#<?php echo esc_js( self::INSTALL_KEY ); ?>, ' +
-					'#<?php echo esc_js( self::MAX_INST_KEY ); ?>'
-				).closest('.form-field');
+	<script type="text/javascript">
+	jQuery(document).ready(function($) {
+		var typeKey    = '#<?php echo esc_js( self::TYPE_KEY ); ?>';
+		var interestId = '#<?php echo esc_js( self::INTEREST_KEY ); ?>';
+		var installId  = '#<?php echo esc_js( self::INSTALL_KEY ); ?>';
+		var maxInstId  = '#<?php echo esc_js( self::MAX_INST_KEY ); ?>';
+		var installPlaceholder = <?php echo wp_json_encode( $d['install'] ); ?>;
+		var maxPlaceholder = <?php echo wp_json_encode( $d['max'] ); ?>;
 
-				if ($typeSelect.length === 0) return;
+		function syncInstallmentPlaceholders() {
+			var $install = $(installId);
+			var $max = $(maxInstId);
 
-				var isPayment = $typeSelect.val() === 'one_time';
-
-				if (isPayment) {
-					$fieldsToToggle.hide();
-				} else {
-					$fieldsToToggle.show();
-				}
+			if ($max.val() !== '') {
+				$install.attr('placeholder', '');
+			} else if ($install.val() === '') {
+				$install.attr('placeholder', installPlaceholder);
 			}
 
-			$(document).on('change', '#<?php echo esc_js( self::TYPE_KEY ); ?>', function() {
-				toggleDebiFields();
-			});
+			if ($install.val() !== '') {
+				$max.attr('placeholder', '');
+			} else if ($max.val() === '') {
+				$max.attr('placeholder', maxPlaceholder);
+			}
+		}
 
-			$(document).on('woocommerce_panels_saved woocommerce_product_type_changed', function() {
-				toggleDebiFields();
-			});
+		function toggleDebiFields() {
+			var $typeSelect = $(typeKey);
+			if ($typeSelect.length === 0) return;
 
-			toggleDebiFields();
-			setTimeout(toggleDebiFields, 200);
+			var isInstallment = $typeSelect.val() === 'installment';
+			var $installmentFields = $(interestId + ', ' + installId + ', ' + maxInstId).closest('.form-field');
+
+			if (isInstallment) {
+				$installmentFields.show();
+			} else {
+				$installmentFields.hide();
+			}
+		}
+
+		$(document).on('input change', installId, function() {
+			if ($(this).val() !== '') {
+				$(maxInstId).val('');
+			}
+			syncInstallmentPlaceholders();
 		});
-		</script>
+
+		$(document).on('input change', maxInstId, function() {
+			if ($(this).val() !== '') {
+				$(installId).val('');
+			}
+			syncInstallmentPlaceholders();
+		});
+
+		$(document).on('change', typeKey, function() {
+			toggleDebiFields();
+		});
+
+		$(document).on('woocommerce_panels_saved woocommerce_product_type_changed', function() {
+			toggleDebiFields();
+		});
+
+		toggleDebiFields();
+		syncInstallmentPlaceholders();
+		setTimeout(toggleDebiFields, 200);
+	});
+	</script>
 		<?php
 	}
 
@@ -243,11 +277,13 @@ class DEBIPRO_Product_Meta {
 	 * @return array{type:DebiProFinancingType,monthly_interest:float,installments:int|null,max_installments:int|null,surcharge:float}
 	 */
 	public static function get_product_financing( $product_id, $gateway = null ) {
-		$type     = get_post_meta( $product_id, self::TYPE_KEY, true );
-		$interest = get_post_meta( $product_id, self::INTEREST_KEY, true );
-		$install  = get_post_meta( $product_id, self::INSTALL_KEY, true );
-		$max      = get_post_meta( $product_id, self::MAX_INST_KEY, true );
-		$surch    = get_post_meta( $product_id, self::SURCHARGE_KEY, true );
+		$type             = get_post_meta( $product_id, self::TYPE_KEY, true );
+		$interest         = get_post_meta( $product_id, self::INTEREST_KEY, true );
+		$install          = get_post_meta( $product_id, self::INSTALL_KEY, true );
+		$max              = get_post_meta( $product_id, self::MAX_INST_KEY, true );
+		$surch            = get_post_meta( $product_id, self::SURCHARGE_KEY, true );
+		$has_install_meta = metadata_exists( 'post', $product_id, self::INSTALL_KEY );
+		$has_max_meta     = metadata_exists( 'post', $product_id, self::MAX_INST_KEY );
 
 		$opt = function ( $key, $fallback ) use ( $gateway ) {
 			if ( $gateway ) {
@@ -263,10 +299,10 @@ class DEBIPRO_Product_Meta {
 		if ( ! is_numeric( $interest ) ) {
 			$interest = $opt( 'default_monthly_interest_percentage', 2 );
 		}
-		if ( ! is_numeric( $install ) || (int) $install < 1 ) {
+		if ( ( ! is_numeric( $install ) || (int) $install < 1 ) && ! $has_max_meta ) {
 			$install = $opt( 'default_installments', '' );
 		}
-		if ( ! is_numeric( $max ) || (int) $max < 1 ) {
+		if ( ( ! is_numeric( $max ) || (int) $max < 1 ) && ! $has_install_meta ) {
 			$max = $opt( 'default_max_installments', '' );
 		}
 		if ( ! is_numeric( $surch ) ) {
