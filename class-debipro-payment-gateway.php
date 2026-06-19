@@ -867,7 +867,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             ? sanitize_text_field(wp_unslash($_POST['debipro-payment_method_token']))
             : '';
         if ('' === $token) {
-            throw new \Exception(__('Please enter your card details before paying.', 'debi-payment-for-woocommerce'));
+            throw new \Exception(esc_html__('Please enter your card details before paying.', 'debi-payment-for-woocommerce'));
         }
 
         $financing                  = $this->get_cart_financing();
@@ -879,7 +879,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             && $max_inst !== null
             && $user_selected_installments > $max_inst
         ) {
-            throw new \Exception(__('Invalid number of installments selected.', 'debi-payment-for-woocommerce'));
+            throw new \Exception(esc_html__('Invalid number of installments selected.', 'debi-payment-for-woocommerce'));
         }
 
         $installments       = self::resolve_installments($order, $user_selected_installments);
@@ -1062,7 +1062,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
 
         if(!$last_item) {
             throw new \Exception(
-                __( 'Could not determine product from order; order contains no valid items.', 'debi-payment-for-woocommerce' )
+                esc_html__( 'Could not determine product from order; order contains no valid items.', 'debi-payment-for-woocommerce' )
             );
         }
 
@@ -1085,7 +1085,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
 
             if ( $requested === null ) {
                 throw new \Exception(
-                    __( 'Requested number of installments was not provided.', 'debi-payment-for-woocommerce' )
+                    esc_html__( 'Requested number of installments was not provided.', 'debi-payment-for-woocommerce' )
                 );
             }
 
@@ -1095,13 +1095,13 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             throw new \Exception(
                 sprintf(
                 /* translators: 1: requested installment count, 2: product maximum installments. */
-                __( 'Requested installments (%1$d) exceed the product maximum (%2$d).', 'debi-payment-for-woocommerce' ),
-                $requested,
-                $max_installments)
+                esc_html__( 'Requested installments (%1$d) exceed the product maximum (%2$d).', 'debi-payment-for-woocommerce' ),
+                (int) $requested,
+                (int) $max_installments)
             );
         }
         
-        throw new \Exception(__( 'Product financing configuration is invalid.', 'debi-payment-for-woocommerce' ));
+        throw new \Exception(esc_html__( 'Product financing configuration is invalid.', 'debi-payment-for-woocommerce' ));
     }
 
     private static function resolve_installment_amount(float $final_price, ?int $installments) {

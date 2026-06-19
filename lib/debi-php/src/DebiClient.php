@@ -134,12 +134,14 @@ final class DebiClient
             'webhookEndpoints' => new WebhookEndpointService($this->requestor),
             'billingPortalSessions' => new BillingPortalSessionService($this->requestor),
             'billingPortalConfigurations' => new BillingPortalConfigurationService($this->requestor),
+            // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped
             default => throw new \InvalidArgumentException(
                 "Unknown Debi service: '{$name}'. "
                 . "Available: customers, payments, subscriptions, mandates, paymentMethods, "
                 . "refunds, sessions, links, events, exports, imports, gateways, webhookEndpoints, "
                 . "billingPortalSessions, billingPortalConfigurations."
             ),
+            // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
         };
     }
 

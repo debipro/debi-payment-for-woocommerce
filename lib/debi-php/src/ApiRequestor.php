@@ -95,11 +95,13 @@ final class ApiRequestor
         try {
             $encoded = json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
         } catch (\JsonException $e) {
+            // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped
             throw new \InvalidArgumentException(
                 'Could not encode request body as JSON: ' . $e->getMessage(),
                 0,
                 $e,
             );
+            // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         return $encoded;
     }
@@ -134,7 +136,7 @@ final class ApiRequestor
                 ? ['message' => $this->describeNonJsonResponse($status, $body, $response->headers)]
                 : $decoded;
 
-            throw ApiErrorException::fromResponse($status, $payload, $response->headers);
+            throw ApiErrorException::fromResponse($status, $payload, $response->headers); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         // 2xx with a non-empty body that fails to parse as JSON is a protocol
@@ -144,11 +146,13 @@ final class ApiRequestor
         // returning a redirect page with a 200) loud and localized instead of
         // showing up as missing fields somewhere downstream.
         if ($jsonError !== null) {
+            // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped
             throw ApiErrorException::fromResponse(
                 $status,
                 ['message' => $this->describeNonJsonResponse($status, $body, $response->headers)],
                 $response->headers,
             );
+            // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         // 2xx with an empty body is intentionally allowed: DELETE endpoints

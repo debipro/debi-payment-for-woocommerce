@@ -105,18 +105,6 @@ function debipro_map_locale($locale, $domain) {
 	return $locale;
 }
 
-// Load translations early.
-// load_plugin_textdomain() calls apply_filters('plugin_locale', ...) internally,
-// so debipro_map_locale() above still runs and maps es_AR → es_ES.
-add_action('plugins_loaded', 'debipro_load_textdomain', 5);
-function debipro_load_textdomain() {
-	load_plugin_textdomain(
-		'debi-payment-for-woocommerce',
-		false,
-		dirname(plugin_basename(__FILE__)) . '/languages'
-	);
-}
-
 function debipro_add_payment_gateway($gateways) {
 	$gateways[] = 'DEBIPRO_Payment_Gateway';
 	return $gateways;

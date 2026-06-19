@@ -52,7 +52,7 @@ final class WpDebiHttpClient implements ClientInterface {
 
 		$result = wp_remote_request( $url, $args );
 		if ( is_wp_error( $result ) ) {
-			throw new TransportException( 'WordPress HTTP transport error: ' . $result->get_error_message() );
+			throw new TransportException( 'WordPress HTTP transport error: ' . $result->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 		}
 
 		$status    = (int) wp_remote_retrieve_response_code( $result );

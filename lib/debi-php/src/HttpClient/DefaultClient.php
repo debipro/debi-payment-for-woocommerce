@@ -112,11 +112,13 @@ final class DefaultClient implements ClientInterface
         try {
             $psrResponse = $this->http->sendRequest($request);
         } catch (ClientExceptionInterface $e) {
+            // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped
             throw new TransportException(
                 'HTTP transport error contacting Debi: ' . $e->getMessage(),
                 0,
                 $e,
             );
+            // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         $flatHeaders = [];

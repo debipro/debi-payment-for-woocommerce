@@ -70,9 +70,11 @@ abstract class AbstractService
         [$body] = $this->requestor->request('GET', $path, $params, $options);
 
         if (!isset($body['data']) || !is_array($body['data'])) {
+            // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped
             throw new \UnexpectedValueException(
                 "Expected a list response from {$path} containing a `data` array."
             );
+            // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         $collection = Collection::fromList($body);
