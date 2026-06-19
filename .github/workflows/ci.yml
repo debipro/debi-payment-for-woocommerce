@@ -78,4 +78,4 @@ jobs:
       - name: Run Plugin Check
         uses: WordPress/plugin-check-action@v1
         with:
-          build-dir: "/tmp/plugin-check"
+          build-dir: "/tmp/plugin-check/debi-payment-for-woocommerce"
