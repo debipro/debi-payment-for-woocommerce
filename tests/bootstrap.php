@@ -29,5 +29,6 @@ if ( ! defined( 'WPINC' ) ) {
 
 require_once DEBI_PLUGIN_DIR . '/includes/class-debipro-product-meta.php';
 require_once DEBI_PLUGIN_DIR . '/includes/class-debipro-cart.php';
+require_once __DIR__ . '/stubs/wp-meta-functions.php';
 require_once __DIR__ . '/stubs/wc-functions.php';
 require_once __DIR__ . '/stubs/class-wc-order.php';
