@@ -12,14 +12,12 @@
 		title: 'Debi Payment',
 		description: '',
 		installment_options: [],
-		is_subscription: false,
 		publishable_key: '',
 		payment_flow: 'onsite',
 		supports: ['products'],
 	});
 
-	var isRedirect     = settings.payment_flow === 'redirect';
-	var isSubscription = settings.is_subscription === true;
+	var isRedirect = settings.payment_flow === 'redirect';
 
 	function DebiFields(props) {
 		var eventRegistration = props.eventRegistration;
@@ -89,7 +87,8 @@
 		// Promise, so we can do the async SDK tokenization here before WC submits.
 		useEffect(function () {
 			var unsubscribe = onPaymentSetup(function () {
-				if (!isSubscription && !quotas) {
+				var options = settings.installment_options || [];
+				if (options.length > 0 && !quotas) {
 					return {
 						type: emitResponse.responseTypes.ERROR,
 						message: 'Por favor seleccioná el número de cuotas.',
@@ -102,7 +101,7 @@
 						type: emitResponse.responseTypes.SUCCESS,
 						meta: {
 							paymentMethodData: {
-								'debipro-cuotas': isSubscription ? '' : quotas,
+								'debipro-cuotas': quotas,
 							},
 						},
 					};
@@ -137,7 +136,7 @@
 								paymentMethodData: {
 									'debipro-payment_method_token': result.token.id,
 									'debipro-card_last_four': lastFour,
-									'debipro-cuotas': isSubscription ? '' : quotas,
+									'debipro-cuotas': quotas,
 								},
 							},
 						};
@@ -181,7 +180,7 @@
 			settings.description
 				? createElement('p', { className: 'debipro-description' }, settings.description)
 				: null,
-			!isSubscription && options.length > 0
+			options.length > 0
 				? createElement(
 					'p',
 					null,

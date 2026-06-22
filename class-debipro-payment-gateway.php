@@ -96,8 +96,6 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                     'genericError'       => __('The card could not be validated. Check the details and try again.', 'debi-payment-for-woocommerce'),
                     'rateLimitError'     => __('The payment service is temporarily busy. Please wait a moment and try again.', 'debi-payment-for-woocommerce'),
                     'notReady'           => __('The card form is not ready yet.', 'debi-payment-for-woocommerce'),
-                    'recurringPayment'   => __('Monthly recurring payment', 'debi-payment-for-woocommerce'),
-                    'perMonth'           => __('Month', 'debi-payment-for-woocommerce'),
                     'noInterest'         => __('interest-free', 'debi-payment-for-woocommerce'),
                     'total'              => __('Total', 'debi-payment-for-woocommerce'),
                     'selectInstallments'   => __('Select the number of installments', 'debi-payment-for-woocommerce'),
@@ -179,7 +177,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         }
 
         $financing = $this->get_cart_financing();
-        if ($financing['type'] === DebiProFinancingType::Subscription) {
+        if ($financing['type'] === DebiProFinancingType::OneTimePayment) {
             return [];
         }
 
@@ -273,9 +271,8 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                 'type'    => 'select',
                 'default' => 'installment',
                 'options' => array(
-                    'installment'  => __('Installment', 'debi-payment-for-woocommerce'),
-                    // 'subscription' => __('Subscription', 'debi-payment-for-woocommerce'),
-                    'one_time'     => __('One-time payment', 'debi-payment-for-woocommerce'),
+                    'installment' => __('Installment', 'debi-payment-for-woocommerce'),
+                    'one_time'    => __('One-time payment', 'debi-payment-for-woocommerce'),
                 ),
             ),
             'default_monthly_interest_percentage' => array(
@@ -496,8 +493,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
      */
     public function generate_debipro_secret_key_html($key, $data)
     {
-        // The shared styles are emitted once, alongside the first key field.
-        return self::field_styles() . $this->generate_key_field_html($key, $data, true);
+        return $this->generate_key_field_html($key, $data, true);
     }
 
     /**
@@ -510,31 +506,6 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
     public function generate_debipro_publishable_key_html($key, $data)
     {
         return $this->generate_key_field_html($key, $data, false);
-    }
-
-    /**
-     * Shared CSS for the key fields, emitted only once per page render.
-     *
-     * @return string
-     */
-    private static function field_styles()
-    {
-        static $printed = false;
-        if ($printed) {
-            return '';
-        }
-        $printed = true;
-
-        return '<style>'
-            . '.debipro-env-badge{display:inline-block;margin-left:8px;vertical-align:middle;padding:2px 10px;border-radius:12px;font-weight:600;font-size:12px;line-height:20px;color:#fff;background:#646970;}'
-            . '.debipro-env-badge.debipro-env-test{background:#996800;}'
-            . '.debipro-env-badge.debipro-env-live{background:#1a7f37;}'
-            . '.debipro-env-badge.debipro-env-error{background:#b32d2e;}'
-            . '.debipro-env-badge.debipro-env-unknown{background:#646970;}'
-            . '.debipro-test-result{margin-left:8px;font-weight:600;}'
-            . '.debipro-key-preview{margin:8px 0;}'
-            . '.debipro-key-preview code{background:#f0f0f1;padding:1px 6px;border-radius:3px;font-size:12px;}'
-            . '</style>';
     }
 
     /**
@@ -658,6 +629,10 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         $install_key = $this->get_field_key('default_installments');
         $max_key     = $this->get_field_key('default_max_installments');
         $type        = isset($post_data[$type_key]) ? sanitize_text_field($post_data[$type_key]) : (string) $this->get_option('default_type', 'installment');
+        if (DebiProFinancingType::tryFrom($type) === null) {
+            $_POST[$type_key] = DebiProFinancingType::Installment->value;
+            $type             = DebiProFinancingType::Installment->value;
+        }
 
         if ('installment' === $type) {
             $install_raw = isset($post_data[$install_key]) ? trim((string) $post_data[$install_key]) : '';
@@ -846,6 +821,13 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             return;
         }
 
+        wp_enqueue_style(
+            'debipro-admin-settings',
+            DEBIPRO_PLUGIN_URL . 'assets/css/admin-settings.css',
+            array(),
+            DEBIPRO_PLUGIN_VERSION
+        );
+
         wp_enqueue_script(
             'debipro-admin-settings',
             DEBIPRO_PLUGIN_URL . 'assets/js/admin-settings.js',
@@ -875,16 +857,6 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             )
         );
 
-        add_action('admin_footer', array(__CLASS__, 'print_installment_defaults_script'), 20);
-    }
-
-    /**
-     * Inline script for default installment fields on the gateway settings screen.
-     *
-     * @return void
-     */
-    public static function print_installment_defaults_script()
-    {
         if (!function_exists('WC')) {
             return;
         }
@@ -895,63 +867,26 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             return;
         }
 
-        $type_id     = $gateway->get_field_key('default_type');
-        $interest_id = $gateway->get_field_key('default_monthly_interest_percentage');
-        $fixed_id    = $gateway->get_field_key('default_installments');
-        $max_id      = $gateway->get_field_key('default_max_installments');
-        ?>
-        <script type="text/javascript">
-        jQuery(function($) {
-            var typeId     = <?php echo wp_json_encode('#' . $type_id); ?>;
-            var interestId = <?php echo wp_json_encode('#' . $interest_id); ?>;
-            var fixedId    = <?php echo wp_json_encode('#' . $fixed_id); ?>;
-            var maxId      = <?php echo wp_json_encode('#' . $max_id); ?>;
-            var installMsg = <?php echo wp_json_encode(__('When the default product type is Installment, set either "Fixed installments" or "Maximum installments".', 'debi-payment-for-woocommerce')); ?>;
-
-            function toggleInstallmentFields() {
-                var isInstallment = $(typeId).val() === 'installment';
-                $(interestId + ', ' + fixedId + ', ' + maxId).closest('tr').toggle(isInstallment);
-            }
-
-            function fieldHasValue(selector) {
-                var value = $(selector).val();
-                return value !== '' && value !== null && parseInt(value, 10) >= 1;
-            }
-
-            function syncInstallmentFields(changedSelector) {
-                if (!fieldHasValue(changedSelector)) {
-                    return;
-                }
-                if (changedSelector === fixedId) {
-                    $(maxId).val('');
-                } else if (changedSelector === maxId) {
-                    $(fixedId).val('');
-                }
-            }
-
-            $(document).on('change', typeId, toggleInstallmentFields);
-            toggleInstallmentFields();
-
-            if (fieldHasValue(fixedId) && fieldHasValue(maxId)) {
-                $(maxId).val('');
-            }
-
-            $(document).on('input change', fixedId + ', ' + maxId, function() {
-                syncInstallmentFields('#' + this.id);
-            });
-
-            $(typeId).closest('form').on('submit', function(e) {
-                if ($(typeId).val() !== 'installment') {
-                    return;
-                }
-                if (!fieldHasValue(fixedId) && !fieldHasValue(maxId)) {
-                    e.preventDefault();
-                    window.alert(installMsg);
-                }
-            });
-        });
-        </script>
-        <?php
+        wp_enqueue_script(
+            'debipro-admin-installment-defaults',
+            DEBIPRO_PLUGIN_URL . 'assets/js/admin-installment-defaults.js',
+            array('jquery'),
+            DEBIPRO_PLUGIN_VERSION,
+            true
+        );
+        wp_localize_script(
+            'debipro-admin-installment-defaults',
+            'debiproInstallmentDefaults',
+            array(
+                'typeId'     => '#' . $gateway->get_field_key('default_type'),
+                'interestId' => '#' . $gateway->get_field_key('default_monthly_interest_percentage'),
+                'fixedId'    => '#' . $gateway->get_field_key('default_installments'),
+                'maxId'      => '#' . $gateway->get_field_key('default_max_installments'),
+                'i18n'       => array(
+                    'installMsg' => __('When the default product type is Installment, set either "Fixed installments" or "Maximum installments".', 'debi-payment-for-woocommerce'),
+                ),
+            )
+        );
     }
 
     public function process_payment($order_id)
@@ -1151,14 +1086,13 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
     }
 
     /**
-     * Resolve the number of installments for a subscription based on the product
-     * financing configuration and the customer-requested count.
+     * Resolve the number of installments based on the product financing
+     * configuration and the customer-requested count.
      *
-     * - payment type    → always 1 (single charge, no plan).
-     * - subscription with a fixed installment count on the product → use that value.
-     * - subscription with a max_installments cap → use $requested, throwing if it
+     * - one_time    → always 1 (single charge, no plan).
+     * - installment with a fixed count on the product → use that value.
+     * - installment with a max_installments cap → use $requested, throwing if it
      *   exceeds the cap.
-     * - subscription with no constraint → use $requested as-is (0 = open-ended).
      */
     private static function resolve_installments( WC_Order $order, ?int $requested ): ?int {
         $items     = $order->get_items();
@@ -1173,9 +1107,6 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         $product_id     = (int) $last_item->get_product_id();
         $financing      = \DEBIPRO_Product_Meta::get_product_financing( $product_id );
         $financing_type = $financing['type'];
-
-        if($financing_type == DebiProFinancingType::Subscription)
-            return null;
 
         if($financing_type == DebiProFinancingType::OneTimePayment)
             return 1;
