@@ -26,6 +26,7 @@
         "test": "composer test",
         "test:integration": "wp-env run tests-cli --env-cwd=wp-content/plugins/debi-payment-for-woocommerce composer test",
         "build": "wp-scripts build",
+        "build:translations": "bash bin/build-translations.sh",
         "package": "bash bin/build-plugin-zip.sh",
         "zip": "npm run package"
     },

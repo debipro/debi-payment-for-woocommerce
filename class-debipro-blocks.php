@@ -44,7 +44,7 @@ final class DEBIPRO_Blocks_Integration extends AbstractPaymentMethodType {
 			'debipro-checkout-block',
 			plugin_dir_url(__FILE__) . 'assets/js/checkout-block.js',
 			['wc-blocks-registry', 'wc-settings', 'wp-element', 'debi-sdk'],
-			'1.2.0',
+			'1.2.2',
 			true
 		);
 		return ['debipro-checkout-block'];
@@ -57,16 +57,14 @@ final class DEBIPRO_Blocks_Integration extends AbstractPaymentMethodType {
 
 		$installment_options = $this->gateway->get_installment_options_for_cart();
 		$public_key          = trim((string) $this->gateway->get_option('publishable_key'));
-		$is_subscription     = empty($installment_options);
 
 		return [
 			'title'               => $this->gateway->get_option('title') ?: 'Debi Payment',
 			'description'         => $this->gateway->get_option('description') ?: '',
 			'supports'            => $this->get_supported_features(),
 			'installment_options' => $installment_options,
-			'is_subscription'     => $is_subscription,
 			'publishable_key'     => $public_key,
-			'payment_flow'        => $this->gateway->get_option('payment_flow', 'onsite'),
+			'i18n'                => $this->gateway->get_checkout_i18n(),
 		];
 	}
 }

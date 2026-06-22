@@ -20,10 +20,9 @@ use PHPUnit\Framework\TestCase;
  */
 final class DebiproCartTest extends TestCase {
 
-	private const PRODUCT_SUBSCRIPTION = 101;
-	private const PRODUCT_INSTALLMENT  = 102;
-	private const PRODUCT_ONE_TIME_A   = 103;
-	private const PRODUCT_ONE_TIME_B   = 104;
+	private const PRODUCT_INSTALLMENT = 102;
+	private const PRODUCT_ONE_TIME_A  = 103;
+	private const PRODUCT_ONE_TIME_B  = 104;
 
 	/** @var array<int, array{message: string, type: string}> */
 	private array $notices = array();
@@ -43,10 +42,9 @@ final class DebiproCartTest extends TestCase {
 				}
 
 				$types = array(
-					self::PRODUCT_SUBSCRIPTION => DebiProFinancingType::Subscription->value,
-					self::PRODUCT_INSTALLMENT  => DebiProFinancingType::Installment->value,
-					self::PRODUCT_ONE_TIME_A   => DebiProFinancingType::OneTimePayment->value,
-					self::PRODUCT_ONE_TIME_B   => DebiProFinancingType::OneTimePayment->value,
+					self::PRODUCT_INSTALLMENT => DebiProFinancingType::Installment->value,
+					self::PRODUCT_ONE_TIME_A  => DebiProFinancingType::OneTimePayment->value,
+					self::PRODUCT_ONE_TIME_B  => DebiProFinancingType::OneTimePayment->value,
 				);
 
 				return $types[ $post_id ] ?? '';
@@ -122,15 +120,14 @@ final class DebiproCartTest extends TestCase {
 	}
 
 	public function provide_type_compatibility_matrix(): array {
-		$exclusive = array(
-			DebiProFinancingType::Subscription,
+		$types = array(
 			DebiProFinancingType::Installment,
 			DebiProFinancingType::OneTimePayment,
 		);
 
 		$cases = array();
-		foreach ( $exclusive as $reference ) {
-			foreach ( $exclusive as $incoming ) {
+		foreach ( $types as $reference ) {
+			foreach ( $types as $incoming ) {
 				$expected = DebiProFinancingType::OneTimePayment === $reference
 					&& DebiProFinancingType::OneTimePayment === $incoming;
 
@@ -148,11 +145,11 @@ final class DebiproCartTest extends TestCase {
 	public function test_get_last_cart_item_type_uses_last_entry(): void {
 		$items = array(
 			'first'  => array( 'product_id' => self::PRODUCT_ONE_TIME_A ),
-			'second' => array( 'product_id' => self::PRODUCT_SUBSCRIPTION ),
+			'second' => array( 'product_id' => self::PRODUCT_INSTALLMENT ),
 		);
 
 		$this->assertSame(
-			DebiProFinancingType::Subscription,
+			DebiProFinancingType::Installment,
 			$this->invoke_last_cart_item_type( $items )
 		);
 	}
@@ -160,7 +157,7 @@ final class DebiproCartTest extends TestCase {
 	public function test_validate_add_to_cart_allows_any_product_in_empty_cart(): void {
 		$this->stub_cart( array() );
 
-		$result = DEBIPRO_Cart::validate_add_to_cart( true, self::PRODUCT_SUBSCRIPTION, 1 );
+		$result = DEBIPRO_Cart::validate_add_to_cart( true, self::PRODUCT_INSTALLMENT, 1 );
 
 		$this->assertTrue( $result );
 		$this->assertSame( array(), $this->notices );
@@ -200,39 +197,24 @@ final class DebiproCartTest extends TestCase {
 	}
 
 	public function provide_blocked_add_to_cart_cases(): array {
-		$cart_has_exclusive = 'The cart already contains a subscription or installment product. You cannot add more products.';
-		$adding_exclusive   = 'You cannot add a subscription or installment product together with other products. Please empty the cart first.';
+		$cart_has_installment = 'The cart already contains an installment product. You cannot add more products.';
+		$adding_installment   = 'You cannot add an installment product together with other products. Please empty the cart first.';
 
 		return array(
-			'one_time_then_subscription'    => array(
-				array( 'line' => array( 'product_id' => self::PRODUCT_ONE_TIME_A ) ),
-				self::PRODUCT_SUBSCRIPTION,
-				$adding_exclusive,
-			),
-			'one_time_then_installment'     => array(
+			'one_time_then_installment'    => array(
 				array( 'line' => array( 'product_id' => self::PRODUCT_ONE_TIME_A ) ),
 				self::PRODUCT_INSTALLMENT,
-				$adding_exclusive,
+				$adding_installment,
 			),
-			'subscription_then_one_time'    => array(
-				array( 'line' => array( 'product_id' => self::PRODUCT_SUBSCRIPTION ) ),
+			'installment_then_one_time'    => array(
+				array( 'line' => array( 'product_id' => self::PRODUCT_INSTALLMENT ) ),
 				self::PRODUCT_ONE_TIME_A,
-				$cart_has_exclusive,
+				$cart_has_installment,
 			),
-			'subscription_then_installment' => array(
-				array( 'line' => array( 'product_id' => self::PRODUCT_SUBSCRIPTION ) ),
+			'installment_then_installment' => array(
+				array( 'line' => array( 'product_id' => self::PRODUCT_INSTALLMENT ) ),
 				self::PRODUCT_INSTALLMENT,
-				$cart_has_exclusive,
-			),
-			'installment_then_one_time'     => array(
-				array( 'line' => array( 'product_id' => self::PRODUCT_INSTALLMENT ) ),
-				self::PRODUCT_ONE_TIME_A,
-				$cart_has_exclusive,
-			),
-			'installment_then_subscription' => array(
-				array( 'line' => array( 'product_id' => self::PRODUCT_INSTALLMENT ) ),
-				self::PRODUCT_SUBSCRIPTION,
-				$cart_has_exclusive,
+				$cart_has_installment,
 			),
 		);
 	}
@@ -241,7 +223,7 @@ final class DebiproCartTest extends TestCase {
 		$this->stub_cart(
 			array(
 				'older' => array( 'product_id' => self::PRODUCT_ONE_TIME_A ),
-				'last'  => array( 'product_id' => self::PRODUCT_SUBSCRIPTION ),
+				'last'  => array( 'product_id' => self::PRODUCT_INSTALLMENT ),
 			)
 		);
 
@@ -249,7 +231,7 @@ final class DebiproCartTest extends TestCase {
 
 		$this->assertFalse( $result );
 		$this->assertSame(
-			'The cart already contains a subscription or installment product. You cannot add more products.',
+			'The cart already contains an installment product. You cannot add more products.',
 			$this->notices[0]['message']
 		);
 	}
@@ -257,7 +239,7 @@ final class DebiproCartTest extends TestCase {
 	public function test_validate_add_to_cart_skips_when_prior_validation_failed(): void {
 		$this->stub_cart(
 			array(
-				'line' => array( 'product_id' => self::PRODUCT_SUBSCRIPTION ),
+				'line' => array( 'product_id' => self::PRODUCT_INSTALLMENT ),
 			)
 		);
 

@@ -2,7 +2,7 @@
 /**
  * Cart validation rules for Debi product types.
  *
- * - Subscription and Installment products cannot coexist with any other product.
+ * - Installment products cannot coexist with any other product.
  * - One-time payment products can be added freely among themselves.
  * - When the cart is not empty, the incoming product is validated against the
  *   last item added to the cart.
@@ -58,7 +58,7 @@ class DEBIPRO_Cart {
 	}
 
 	/**
-	 * One-time products can stack; subscription and installment require an empty cart.
+	 * One-time products can stack; installment products require an empty cart.
 	 *
 	 * @param DebiProFinancingType $reference Last item already in the cart.
 	 * @param DebiProFinancingType $incoming Product being added.
@@ -73,12 +73,12 @@ class DEBIPRO_Cart {
 	 * @param DebiProFinancingType $incoming
 	 */
 	private static function get_incompatibility_message( DebiProFinancingType $reference, DebiProFinancingType $incoming ): string {
-		if ( DebiProFinancingType::Subscription === $reference || DebiProFinancingType::Installment === $reference ) {
-			return __( 'The cart already contains a subscription or installment product. You cannot add more products.', 'debi-payment-for-woocommerce' );
+		if ( DebiProFinancingType::Installment === $reference ) {
+			return __( 'The cart already contains an installment product. You cannot add more products.', 'debi-payment-for-woocommerce' );
 		}
 
-		if ( DebiProFinancingType::Subscription === $incoming || DebiProFinancingType::Installment === $incoming ) {
-			return __( 'You cannot add a subscription or installment product together with other products. Please empty the cart first.', 'debi-payment-for-woocommerce' );
+		if ( DebiProFinancingType::Installment === $incoming ) {
+			return __( 'You cannot add an installment product together with other products. Please empty the cart first.', 'debi-payment-for-woocommerce' );
 		}
 
 		return __( 'These products cannot be purchased together. Please empty the cart first.', 'debi-payment-for-woocommerce' );

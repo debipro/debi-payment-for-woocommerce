@@ -58,10 +58,8 @@
       return;
     }
 
-    var f, cartTotal, options;
+    var options;
     try {
-      f = JSON.parse(container.getAttribute("data-financing") || "{}");
-      cartTotal = parseFloat(container.getAttribute("data-cart-total") || "0");
       options = JSON.parse(
         container.getAttribute("data-installment-options") || "[]"
       );
@@ -71,22 +69,6 @@
 
     var $cuotas = $("#debipro-cuotas");
     var previous = $cuotas.val();
-    var surcharge = f.surcharge || 0;
-    var base = cartTotal * (1 + surcharge / 100);
-
-    if (f.type === "subscription") {
-      container.innerHTML =
-        '<p class="debipro-plan-info">' +
-        "<strong>" +
-        (i18n.recurringPayment || "Pago recurrente mensual") +
-        ":</strong> $ " +
-        formatAmount(base) +
-        " / " +
-        (i18n.perMonth || "mes") +
-        "</p>";
-      $cuotas.val("");
-      return;
-    }
 
     if (!options.length) {
       container.innerHTML = "";
@@ -138,10 +120,6 @@
       return false;
     }
     try {
-      var f = JSON.parse(container.getAttribute("data-financing") || "{}");
-      if (f.type === "subscription") {
-        return false;
-      }
       var options = JSON.parse(
         container.getAttribute("data-installment-options") || "[]"
       );

@@ -1,0 +1,44 @@
+.debipro-env-badge {
+	display: inline-block;
+	margin-left: 8px;
+	vertical-align: middle;
+	padding: 2px 10px;
+	border-radius: 12px;
+	font-weight: 600;
+	font-size: 12px;
+	line-height: 20px;
+	color: #fff;
+	background: #646970;
+}
+
+.debipro-env-badge.debipro-env-test {
+	background: #996800;
+}
+
+.debipro-env-badge.debipro-env-live {
+	background: #1a7f37;
+}
+
+.debipro-env-badge.debipro-env-error {
+	background: #b32d2e;
+}
+
+.debipro-env-badge.debipro-env-unknown {
+	background: #646970;
+}
+
+.debipro-test-result {
+	margin-left: 8px;
+	font-weight: 600;
+}
+
+.debipro-key-preview {
+	margin: 8px 0;
+}
+
+.debipro-key-preview code {
+	background: #f0f0f1;
+	padding: 1px 6px;
+	border-radius: 3px;
+	font-size: 12px;
+}

@@ -10,7 +10,6 @@ if ( ! defined( 'WPINC' ) ) {
 }
 
 enum DebiProFinancingType: string {
-	case Subscription   = 'subscription';
 	case Installment    = 'installment';
 	case OneTimePayment = 'one_time';
 }

@@ -3,7 +3,7 @@
  * Per-product Debi configuration meta fields.
  *
  * Adds a "Debi" tab to the WooCommerce product edit page with five fields:
- *   - type             (subscription | payment)
+ *   - type             (installment | one_time)
  *   - monthly_interest percentage
  *   - installments     fixed count — mutually exclusive with max_installments
  *   - max_installments customer chooses 1..N — mutually exclusive with installments
@@ -32,6 +32,7 @@ class DEBIPRO_Product_Meta {
 		add_filter( 'woocommerce_product_data_tabs', array( __CLASS__, 'add_product_tab' ) );
 		add_action( 'woocommerce_product_data_panels', array( __CLASS__, 'render_product_panel' ) );
 		add_action( 'woocommerce_process_product_meta', array( __CLASS__, 'save_product_meta' ) );
+		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_admin_assets' ) );
 	}
 
 	public static function add_product_tab( $tabs ) {
@@ -43,14 +44,62 @@ class DEBIPRO_Product_Meta {
 		return $tabs;
 	}
 
+	private static function normalize_type( string $type ): string {
+		$resolved = DebiProFinancingType::tryFrom( $type );
+
+		return null !== $resolved ? $resolved->value : DebiProFinancingType::Installment->value;
+	}
+
 	private static function get_defaults() {
 		$s = get_option( 'woocommerce_debipro_settings', array() );
 		return array(
-			'type'      => isset( $s['default_type'] ) ? $s['default_type'] : 'subscription',
+			'type'      => self::normalize_type( isset( $s['default_type'] ) ? (string) $s['default_type'] : 'installment' ),
 			'interest'  => isset( $s['default_monthly_interest_percentage'] ) ? $s['default_monthly_interest_percentage'] : '2',
 			'install'   => isset( $s['default_installments'] ) ? $s['default_installments'] : '',
 			'max'       => isset( $s['default_max_installments'] ) ? $s['default_max_installments'] : '',
 			'surcharge' => isset( $s['default_surcharge_percentage'] ) ? $s['default_surcharge_percentage'] : '0',
+		);
+	}
+
+	/**
+	 * @param string $hook Current admin page hook.
+	 * @return void
+	 */
+	public static function enqueue_admin_assets( $hook ) {
+		if ( ! in_array( $hook, array( 'post.php', 'post-new.php' ), true ) ) {
+			return;
+		}
+
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only screen filter, no state change.
+		$post_type = isset( $_GET['post_type'] ) ? sanitize_text_field( wp_unslash( $_GET['post_type'] ) ) : '';
+		if ( '' === $post_type && isset( $_GET['post'] ) ) {
+			$post_type = get_post_type( (int) $_GET['post'] );
+		}
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		if ( 'product' !== $post_type ) {
+			return;
+		}
+
+		wp_enqueue_script(
+			'debipro-admin-product-meta',
+			DEBIPRO_PLUGIN_URL . 'assets/js/admin-product-meta.js',
+			array( 'jquery' ),
+			DEBIPRO_PLUGIN_VERSION,
+			true
+		);
+
+		$defaults = self::get_defaults();
+		wp_localize_script(
+			'debipro-admin-product-meta',
+			'debiproProductMeta',
+			array(
+				'typeKey'            => '#' . self::TYPE_KEY,
+				'interestId'         => '#' . self::INTEREST_KEY,
+				'installId'          => '#' . self::INSTALL_KEY,
+				'maxInstId'          => '#' . self::MAX_INST_KEY,
+				'installPlaceholder' => $defaults['install'],
+				'maxPlaceholder'     => $defaults['max'],
+			)
 		);
 	}
 
@@ -74,7 +123,7 @@ class DEBIPRO_Product_Meta {
 						'label'       => __( 'Type', 'debi-payment-for-woocommerce' ),
 						'value'       => $type ? $type : $d['type'],
 						'desc_tip'    => true,
-						'description' => __( 'subscription: recurring payments with no fixed end. payment: single payment, no additional configuration per product.', 'debi-payment-for-woocommerce' ),
+						'description' => __( 'Installment: fixed or customer-chosen number of payments. Single payment: one charge only.', 'debi-payment-for-woocommerce' ),
 						'options'     => array(
 							'installment' => __( 'Installment', 'debi-payment-for-woocommerce' ),
 							'one_time'    => __( 'Single payment', 'debi-payment-for-woocommerce' ),
@@ -148,74 +197,6 @@ class DEBIPRO_Product_Meta {
 				?>
 			</div>
 		</div>
-		
-	<script type="text/javascript">
-	jQuery(document).ready(function($) {
-		var typeKey    = '#<?php echo esc_js( self::TYPE_KEY ); ?>';
-		var interestId = '#<?php echo esc_js( self::INTEREST_KEY ); ?>';
-		var installId  = '#<?php echo esc_js( self::INSTALL_KEY ); ?>';
-		var maxInstId  = '#<?php echo esc_js( self::MAX_INST_KEY ); ?>';
-		var installPlaceholder = <?php echo wp_json_encode( $d['install'] ); ?>;
-		var maxPlaceholder = <?php echo wp_json_encode( $d['max'] ); ?>;
-
-		function syncInstallmentPlaceholders() {
-			var $install = $(installId);
-			var $max = $(maxInstId);
-
-			if ($max.val() !== '') {
-				$install.attr('placeholder', '');
-			} else if ($install.val() === '') {
-				$install.attr('placeholder', installPlaceholder);
-			}
-
-			if ($install.val() !== '') {
-				$max.attr('placeholder', '');
-			} else if ($max.val() === '') {
-				$max.attr('placeholder', maxPlaceholder);
-			}
-		}
-
-		function toggleDebiFields() {
-			var $typeSelect = $(typeKey);
-			if ($typeSelect.length === 0) return;
-
-			var isInstallment = $typeSelect.val() === 'installment';
-			var $installmentFields = $(interestId + ', ' + installId + ', ' + maxInstId).closest('.form-field');
-
-			if (isInstallment) {
-				$installmentFields.show();
-			} else {
-				$installmentFields.hide();
-			}
-		}
-
-		$(document).on('input change', installId, function() {
-			if ($(this).val() !== '') {
-				$(maxInstId).val('');
-			}
-			syncInstallmentPlaceholders();
-		});
-
-		$(document).on('input change', maxInstId, function() {
-			if ($(this).val() !== '') {
-				$(installId).val('');
-			}
-			syncInstallmentPlaceholders();
-		});
-
-		$(document).on('change', typeKey, function() {
-			toggleDebiFields();
-		});
-
-		$(document).on('woocommerce_panels_saved woocommerce_product_type_changed', function() {
-			toggleDebiFields();
-		});
-
-		toggleDebiFields();
-		syncInstallmentPlaceholders();
-		setTimeout(toggleDebiFields, 200);
-	});
-	</script>
 		<?php
 	}
 
@@ -294,7 +275,7 @@ class DEBIPRO_Product_Meta {
 		};
 
 		if ( DebiProFinancingType::tryFrom( (string) $type ) === null ) {
-			$type = $opt( 'default_type', DebiProFinancingType::Installment->value );
+			$type = self::normalize_type( (string) $opt( 'default_type', DebiProFinancingType::Installment->value ) );
 		}
 		if ( ! is_numeric( $interest ) ) {
 			$interest = $opt( 'default_monthly_interest_percentage', 2 );
@@ -322,7 +303,7 @@ class DEBIPRO_Product_Meta {
 		}
 
 		return array(
-			'type'             => DebiProFinancingType::from( (string) $type ),
+			'type'             => DebiProFinancingType::from( self::normalize_type( (string) $type ) ),
 			'monthly_interest' => (float) $interest,
 			'installments'     => $install_count,
 			'max_installments' => $max_count,

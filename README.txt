@@ -1,5 +1,5 @@
 === Debi Payment for WooCommerce ===
-Contributors: fernandodelperal
+Contributors: systemdebi
 Tags: payment, gateway, debit, installments, subscriptions
 Requires at least: 6.5
 Tested up to: 7.0
@@ -34,7 +34,7 @@ Debi Payment for WooCommerce is the official payment gateway integration for Deb
 
 = Requirements =
 
-* WordPress 5.6 or higher
+* WordPress 6.5 or higher
 * PHP 8.1 or higher
 * WooCommerce 3.0 or higher
 
@@ -116,12 +116,6 @@ Yes. Use sandbox keys (sk_test_... / pk_test_...) to test, then switch to live k
 
 Yes! The plugin is fully translatable. Translation files can be created using the .pot template in the languages folder.
 
-== Screenshots ==
-
-1. Payment method settings page
-2. Checkout with installment selection
-3. Order with payment details
-
 == Changelog ==
 
 = 1.1.0 =
@@ -156,8 +150,8 @@ This plugin connects to the Debi payment platform (https://debi.pro) to process 
 
 These services are provided by DEBI. Please review their terms and privacy policy before using this plugin:
 
-* Terms of service: https://debi.pro/terms
-* Privacy policy: https://debi.pro/privacy
+* Terms of service: https://debi.pro/en/terms
+* Privacy policy: https://debi.pro/en/privacy
 
 == Support ==
 
@@ -172,7 +166,7 @@ Developed by Fernando del Peral for Debi.pro
 
 This plugin transmits customer data (name, email, order details, and a browser-generated payment-method token) to Debi's payment infrastructure to complete transactions. Raw card numbers are never stored on your server or sent through WordPress — they are captured directly by the Debi browser SDK and exchanged for a single-use token.
 
-No payment or card data is stored in your WordPress database. For full details on how Debi handles this data, refer to the Debi privacy policy at https://debi.pro/privacy.
+No payment or card data is stored in your WordPress database. For full details on how Debi handles this data, refer to the Debi privacy policy at https://debi.pro/en/privacy.
 
 == Development ==
 
