@@ -64,7 +64,7 @@ final class DEBIPRO_Blocks_Integration extends AbstractPaymentMethodType {
 			'supports'            => $this->get_supported_features(),
 			'installment_options' => $installment_options,
 			'publishable_key'     => $public_key,
-			'payment_flow'        => $this->gateway->get_option('payment_flow', 'onsite'),
+			'i18n'                => $this->gateway->get_checkout_i18n(),
 		];
 	}
 }

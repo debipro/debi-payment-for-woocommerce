@@ -91,18 +91,29 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                 'sdkUrl'         => 'https://js.debi.pro/v1/',
                 'publishableKey' => $this->publishable_key,
                 'locale'         => 'es-AR',
-                'i18n'           => array(
-                    'loadError'          => __('The card form could not be loaded. Please refresh and try again.', 'debi-payment-for-woocommerce'),
-                    'genericError'       => __('The card could not be validated. Check the details and try again.', 'debi-payment-for-woocommerce'),
-                    'rateLimitError'     => __('The payment service is temporarily busy. Please wait a moment and try again.', 'debi-payment-for-woocommerce'),
-                    'notReady'           => __('The card form is not ready yet.', 'debi-payment-for-woocommerce'),
-                    'noInterest'         => __('interest-free', 'debi-payment-for-woocommerce'),
-                    'total'              => __('Total', 'debi-payment-for-woocommerce'),
-                    'selectInstallments'   => __('Select the number of installments', 'debi-payment-for-woocommerce'),
-                    'installmentsLabel'    => __('Installments', 'debi-payment-for-woocommerce'),
-                    'installmentsRequired' => __('Please select the number of installments.', 'debi-payment-for-woocommerce'),
-                ),
+                'i18n'           => $this->get_checkout_i18n(),
             )
+        );
+    }
+
+    /**
+     * Translatable strings for classic and Blocks checkout scripts.
+     *
+     * @return array<string, string>
+     */
+    public function get_checkout_i18n()
+    {
+        return array(
+            'loadError'            => __('The card form could not be loaded. Please refresh and try again.', 'debi-payment-for-woocommerce'),
+            'genericError'         => __('The card could not be validated. Check the details and try again.', 'debi-payment-for-woocommerce'),
+            'rateLimitError'       => __('The payment service is temporarily busy. Please wait a moment and try again.', 'debi-payment-for-woocommerce'),
+            'notReady'             => __('The card form is not ready yet.', 'debi-payment-for-woocommerce'),
+            'noInterest'           => __('interest-free', 'debi-payment-for-woocommerce'),
+            'total'                => __('Total', 'debi-payment-for-woocommerce'),
+            'selectInstallments'   => __('Select the number of installments', 'debi-payment-for-woocommerce'),
+            'installmentsLabel'    => __('Installments', 'debi-payment-for-woocommerce'),
+            'installmentsRequired' => __('Please select the number of installments.', 'debi-payment-for-woocommerce'),
+            'linkRequired'         => __('To enable this payment method, complete the linking process in the plugin settings.', 'debi-payment-for-woocommerce'),
         );
     }
 
@@ -188,7 +199,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         $options          = array();
 
         if (null !== $financing['installments']) {
-            $options[] = self::format_installment_option(
+            $options[] = $this->format_installment_option(
                 $financing['installments'],
                 $monthly_interest,
                 $surcharge,
@@ -196,7 +207,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             );
         } else {
             for ($i = 1; $i <= $financing['max_installments']; $i++) {
-                $options[] = self::format_installment_option($i, $monthly_interest, $surcharge, $base_amount);
+                $options[] = $this->format_installment_option($i, $monthly_interest, $surcharge, $base_amount);
             }
         }
 
@@ -206,18 +217,17 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
     /**
      * @return array{value:int, label:string}
      */
-    private static function format_installment_option($index, $monthly_interest, $surcharge, $base_amount)
+    private function format_installment_option($index, $monthly_interest, $surcharge, $base_amount)
     {
         $final     = self::financed_total($base_amount, $index, $monthly_interest);
         $quota     = $final / $index;
         $quota_fmt = number_format($quota, 2, ',', ' ');
         $final_fmt = number_format($final, 2, ',', ' ');
-        $plural    = $index > 1 ? 's' : '';
 
         if (0.0 === $monthly_interest && 0.0 === $surcharge) {
-            $label = sprintf('%d cuota%s de $ %s (sin interés)', $index, $plural, $quota_fmt);
+            $label = $this->get_installment_no_interest_text($index, $quota_fmt);
         } else {
-            $label = sprintf('%d cuota%s de $ %s ($ %s)', $index, $plural, $quota_fmt, $final_fmt);
+            $label = $this->get_installment_text($index, $quota_fmt, $final_fmt);
         }
 
         return array('value' => $index, 'label' => $label);

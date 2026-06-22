@@ -13,11 +13,11 @@
 		description: '',
 		installment_options: [],
 		publishable_key: '',
-		payment_flow: 'onsite',
 		supports: ['products'],
+		i18n: {},
 	});
 
-	var isRedirect = settings.payment_flow === 'redirect';
+	var i18n = settings.i18n || {};
 
 	function DebiFields(props) {
 		var eventRegistration = props.eventRegistration;
@@ -27,7 +27,7 @@
 			return createElement(
 				'p',
 				{ style: { color: '#c0392b', margin: '8px 0' } },
-				'Para activar este medio de pago, terminá el proceso de vinculación en la configuración del plugin.'
+				i18n.linkRequired || 'To enable this payment method, complete the linking process in the plugin settings.'
 			);
 		}
 
@@ -42,12 +42,8 @@
 
 		var onPaymentSetup = eventRegistration.onPaymentSetup;
 
-		// Mount the Debi SDK payment element — only for onsite flow
+		// Mount the Debi SDK payment element.
 		useEffect(function () {
-			if (isRedirect) {
-				return;
-			}
-
 			var publishableKey = settings.publishable_key;
 			if (!publishableKey || !window.Debi) {
 				return;
@@ -91,27 +87,14 @@
 				if (options.length > 0 && !quotas) {
 					return {
 						type: emitResponse.responseTypes.ERROR,
-						message: 'Por favor seleccioná el número de cuotas.',
+						message: i18n.installmentsRequired || 'Please select the number of installments.',
 					};
 				}
 
-				// Redirect flow: just pass quotas — server creates the hosted checkout
-				if (isRedirect) {
-					return {
-						type: emitResponse.responseTypes.SUCCESS,
-						meta: {
-							paymentMethodData: {
-								'debipro-cuotas': quotas,
-							},
-						},
-					};
-				}
-
-				// Onsite flow: tokenize the card via Debi SDK before submitting
 				if (!debiClientRef.current || !paymentElementRef.current) {
 					return {
 						type: emitResponse.responseTypes.ERROR,
-						message: 'El SDK de Debi no está listo. Recargá la página.',
+						message: i18n.notReady || 'The card form is not ready yet.',
 					};
 				}
 
@@ -124,8 +107,8 @@
 							return {
 								type: emitResponse.responseTypes.ERROR,
 								message: isRateLimit
-									? 'El servicio está temporalmente ocupado. Por favor, esperá un momento e intentá de nuevo.'
-									: (result.error.message || 'Error al procesar la tarjeta.'),
+									? (i18n.rateLimitError || 'The payment service is temporarily busy. Please wait a moment and try again.')
+									: (result.error.message || i18n.genericError || 'The card could not be validated. Check the details and try again.'),
 							};
 						}
 						var lastFour =
@@ -148,8 +131,8 @@
 						return {
 							type: emitResponse.responseTypes.ERROR,
 							message: isRateLimit
-								? 'El servicio está temporalmente ocupado. Por favor, esperá un momento e intentá de nuevo.'
-								: ((err && err.message) || 'Error al procesar la tarjeta.'),
+								? (i18n.rateLimitError || 'The payment service is temporarily busy. Please wait a moment and try again.')
+								: ((err && err.message) || i18n.genericError || 'The card could not be validated. Check the details and try again.'),
 						};
 					});
 			});
@@ -162,7 +145,7 @@
 			createElement(
 				'option',
 				{ key: '__placeholder', value: '' },
-				'Seleccioná el número de cuotas'
+				i18n.selectInstallments || 'Select the number of installments'
 			),
 		].concat(
 			options.map(function (opt) {
@@ -187,7 +170,7 @@
 					createElement(
 						'label',
 						{ htmlFor: 'debipro-cuotas' },
-						'Seleccioná el número de cuotas ',
+						(i18n.selectInstallments || 'Select the number of installments') + ' ',
 						createElement('span', { className: 'required' }, '*')
 					),
 					createElement(
@@ -204,17 +187,11 @@
 					)
 				  )
 				: null,
-			isRedirect
-				? createElement(
-					'p',
-					{ style: { marginTop: '12px', fontSize: '0.9em', color: '#666' } },
-					'Al confirmar serás redirigido a Debi para completar el pago de forma segura.'
-				  )
-				: createElement('div', {
-					ref: mountRef,
-					id: 'debipro-payment-element',
-					style: { marginTop: '12px' },
-				  })
+			createElement('div', {
+				ref: mountRef,
+				id: 'debipro-payment-element',
+				style: { marginTop: '12px' },
+			})
 		);
 	}
 

@@ -2,7 +2,7 @@
 Contributors: systemdebi
 Tags: payment, gateway, debit, installments, subscriptions
 Requires at least: 6.5
-Tested up to: 7.0
+Tested up to: 6.7
 Stable tag: 1.1.0
 Requires PHP: 8.1
 License: GPLv2 or later
@@ -34,7 +34,7 @@ Debi Payment for WooCommerce is the official payment gateway integration for Deb
 
 = Requirements =
 
-* WordPress 5.6 or higher
+* WordPress 6.5 or higher
 * PHP 8.1 or higher
 * WooCommerce 3.0 or higher
 
@@ -115,12 +115,6 @@ Yes. Use sandbox keys (sk_test_... / pk_test_...) to test, then switch to live k
 = Can I translate the plugin to my language? =
 
 Yes! The plugin is fully translatable. Translation files can be created using the .pot template in the languages folder.
-
-== Screenshots ==
-
-1. Payment method settings page
-2. Checkout with installment selection
-3. Order with payment details
 
 == Changelog ==
 

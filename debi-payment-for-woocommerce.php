@@ -19,14 +19,14 @@
  * Author:            DEBI
  * Author URI:        https://github.com/debipro
  * License:           GPL-2.0+
- * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
+ * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       debi-payment-for-woocommerce
  * Domain Path:       /languages/
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Requires Plugins:  woocommerce
  * WC requires at least: 3.0
- * Tested up to:      7.0
+ * Tested up to:      6.7
  * WC tested up to:   9.8
  */
 
