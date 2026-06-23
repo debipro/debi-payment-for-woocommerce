@@ -922,12 +922,9 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         $financing                  = $this->get_cart_financing();
         $max_inst                   = $financing['max_installments'];
         $cuotas_raw                 = isset($_POST['debipro-cuotas']) ? absint(wp_unslash($_POST['debipro-cuotas'])) : 0;
-        $user_selected_installments = $cuotas_raw > 0 ? $cuotas_raw : null;
+        $user_selected_installments = $cuotas_raw > 0 ? $cuotas_raw : 1;
 
-        if ( $user_selected_installments !== null
-            && $max_inst !== null
-            && $user_selected_installments > $max_inst
-        ) {
+        if ( $max_inst !== null && $user_selected_installments > $max_inst) {
             throw new \Exception(esc_html__('Invalid number of installments selected.', 'debi-payment-for-woocommerce'));
         }
 
@@ -1104,7 +1101,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
      * - installment with a max_installments cap → use $requested, throwing if it
      *   exceeds the cap.
      */
-    private static function resolve_installments( WC_Order $order, ?int $requested ): ?int {
+    private static function resolve_installments( WC_Order $order, int $requested ): ?int {
         $items     = $order->get_items();
         $last_item = $items ? $items[ array_key_last( $items ) ] : false;
 
@@ -1128,13 +1125,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             if ( $fixed_installments !== null )
                 return $fixed_installments;
 
-            if ( $requested === null ) {
-                throw new \Exception(
-                    esc_html__( 'Requested number of installments was not provided.', 'debi-payment-for-woocommerce' )
-                );
-            }
-
-            if( $max_installments !== null && $requested < $max_installments)
+            if( $max_installments !== null && $requested <= $max_installments)
                 return $requested;                
             
             throw new \Exception(
