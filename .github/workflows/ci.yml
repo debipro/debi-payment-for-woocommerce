@@ -5,6 +5,7 @@ on:
     branches: [main, refactor]
   push:
     branches: [main, refactor]
+    tags: ["v*"]
   workflow_dispatch:
 
 concurrency:
