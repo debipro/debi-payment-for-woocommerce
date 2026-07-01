@@ -11,6 +11,7 @@
 	var settings = getSetting('debipro_data', {
 		title: 'Debi Payment',
 		description: '',
+		icon: '',
 		installment_options: [],
 		publishable_key: '',
 		supports: ['products'],
@@ -195,11 +196,26 @@
 		);
 	}
 
+	function PaymentLabel() {
+		return createElement(
+			'span',
+			{ className: 'debipro-payment-label' },
+			settings.icon
+				? createElement('img', {
+					className: 'debipro-payment-icon',
+					src: settings.icon,
+					alt: settings.title,
+					style: { marginTop: '5px' },
+				})
+				: null,
+		);
+	}
+
 	registerPaymentMethod({
 		name: 'debipro',
-		label: settings.title,
+		label: createElement(PaymentLabel, null),
 		content: createElement(DebiFields, null),
-		edit: createElement('div', null, settings.title),
+		edit: createElement(PaymentLabel, null),
 		canMakePayment: function () {
 			return true;
 		},

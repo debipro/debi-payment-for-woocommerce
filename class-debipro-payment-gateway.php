@@ -38,6 +38,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         $this->id = 'debipro';
         $this->method_title = __('Debi Payment', 'debi-payment-for-woocommerce');
         $this->title = __('Debi Payment', 'debi-payment-for-woocommerce');
+        $this->icon = self::get_icon_url();
         $this->has_fields = true;
         $this->init_form_fields();
         $this->init_settings();
@@ -49,6 +50,16 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
 
         add_action('woocommerce_update_options_payment_gateways_' . $this->id, array($this, 'process_admin_options'));
         add_action('wp_enqueue_scripts', array($this, 'payment_scripts'));
+    }
+
+    /**
+     * Public URL for the Debi logo shown in checkout and payment settings.
+     *
+     * @return string
+     */
+    public static function get_icon_url()
+    {
+        return DEBIPRO_PLUGIN_URL . 'assets/images/debi-logo.svg';
     }
 
     /**

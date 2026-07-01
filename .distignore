@@ -14,6 +14,9 @@
 # Dist controls
 .distignore
 
+# WordPress.org SVN assets (deployed separately via .wordpress-org/)
+.wordpress-org
+
 # Local dev env
 .wp-env.json
 .wp-env.classic.json
