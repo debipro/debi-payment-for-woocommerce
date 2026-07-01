@@ -26,6 +26,8 @@ final class DEBIPRO_Blocks_Integration extends AbstractPaymentMethodType {
 
 		$gateways = WC()->payment_gateways()->payment_gateways();
 		$this->gateway = $gateways['debipro'] ?? null;
+
+		add_action( 'wp_enqueue_scripts', array( $this, 'maybe_enqueue_checkout_block_assets' ), 20 );
 	}
 
 	public function is_active() {
@@ -33,21 +35,55 @@ final class DEBIPRO_Blocks_Integration extends AbstractPaymentMethodType {
 	}
 
 	public function get_payment_method_script_handles() {
-		wp_register_script(
+		$this->enqueue_checkout_block_scripts();
+		return array( 'debipro-checkout-block' );
+	}
+
+	public function maybe_enqueue_checkout_block_assets() {
+		if ( ! $this->is_active() ) {
+			return;
+		}
+
+		if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) {
+			return;
+		}
+
+		if (
+			! class_exists( '\Automattic\WooCommerce\Blocks\Utils\CartCheckoutUtils' )
+			|| ! \Automattic\WooCommerce\Blocks\Utils\CartCheckoutUtils::is_checkout_block_default()
+		) {
+			return;
+		}
+
+		wp_enqueue_style(
+			'debipro-checkout-block',
+			plugin_dir_url( __FILE__ ) . 'assets/css/checkout-block.css',
+			array(),
+			DEBIPRO_PLUGIN_VERSION
+		);
+
+		$this->enqueue_checkout_block_scripts();
+	}
+
+	private function enqueue_checkout_block_scripts() {
+		if ( wp_script_is( 'debipro-checkout-block', 'registered' ) ) {
+			return;
+		}
+
+		wp_enqueue_script(
 			'debi-sdk',
 			'https://js.debi.pro/v1/',
-			[],
+			array(),
 			DEBIPRO_PLUGIN_VERSION,
 			true
 		);
-		wp_register_script(
+		wp_enqueue_script(
 			'debipro-checkout-block',
-			plugin_dir_url(__FILE__) . 'assets/js/checkout-block.js',
-			['wc-blocks-registry', 'wc-settings', 'wp-element', 'debi-sdk'],
-			'1.2.2',
+			plugin_dir_url( __FILE__ ) . 'assets/js/checkout-block.js',
+			array( 'wc-blocks-registry', 'wc-settings', 'wp-element', 'debi-sdk' ),
+			DEBIPRO_PLUGIN_VERSION,
 			true
 		);
-		return ['debipro-checkout-block'];
 	}
 
 	public function get_payment_method_data() {

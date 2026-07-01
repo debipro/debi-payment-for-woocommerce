@@ -160,7 +160,7 @@
 
 		return createElement(
 			'div',
-			{ className: 'debipro-payment-fields', style: { padding: '16px !important' } },
+			{ className: 'debipro-payment-fields' },
 			settings.description
 				? createElement('p', { className: 'debipro-description' }, settings.description)
 				: null,
@@ -169,20 +169,14 @@
 					'p',
 					null,
 					createElement(
-						'label',
-						{ htmlFor: 'debipro-cuotas' },
-						(i18n.selectInstallments || 'Select the number of installments') + ' ',
-						createElement('span', { className: 'required' }, '*')
-					),
-					createElement(
 						'select',
 						{
 							id: 'debipro-cuotas',
+							className: 'debipro-installments-select',
 							value: quotas,
 							onChange: function (e) {
 								setQuotas(e.target.value);
 							},
-							style: { width: '100%', marginTop: '4px' },
 						},
 						selectChildren
 					)
