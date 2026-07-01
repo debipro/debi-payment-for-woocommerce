@@ -60,7 +60,7 @@ final class DEBIPRO_Blocks_Integration extends AbstractPaymentMethodType {
 
 		return [
 			'title'               => $this->gateway->get_option('title') ?: 'Debi Payment',
-			'description'         => $this->gateway->get_option('description') ?: '',
+			'description'         => $this->gateway->get_description(),
 			'icon'                => DEBIPRO_Payment_Gateway::get_icon_url(),
 			'supports'            => $this->get_supported_features(),
 			'installment_options' => $installment_options,

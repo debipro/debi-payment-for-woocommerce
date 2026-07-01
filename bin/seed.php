@@ -139,10 +139,8 @@ function debi_seed_configure_gateway( array $gateway ) {
 		$current = array();
 	}
 	$desired = array(
-		'enabled'     => isset( $gateway['enabled'] ) ? $gateway['enabled'] : 'yes',
-		'title'       => isset( $gateway['title'] ) ? $gateway['title'] : 'Debi',
-		'description' => isset( $gateway['description'] ) ? $gateway['description'] : '',
-		'testmode'    => isset( $gateway['testmode'] ) ? $gateway['testmode'] : 'yes',
+		'enabled' => isset( $gateway['enabled'] ) ? $gateway['enabled'] : 'yes',
+		'title'   => isset( $gateway['title'] ) ? $gateway['title'] : 'Debi',
 	);
 	$merged  = array_merge( $current, $desired );
 	if ( $merged === $current ) {
@@ -150,7 +148,7 @@ function debi_seed_configure_gateway( array $gateway ) {
 		return;
 	}
 	update_option( $option_key, $merged );
-	debi_seed_log( "configured gateway '{$gateway_id}' (sandbox mode)" );
+	debi_seed_log( "configured gateway '{$gateway_id}'" );
 }
 
 /**

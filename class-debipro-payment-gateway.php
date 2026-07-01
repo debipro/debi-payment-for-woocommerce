@@ -44,7 +44,6 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         $this->init_settings();
         $this->enabled = $this->get_option('enabled');
         $this->title = $this->get_option('title');
-        $this->description = $this->get_option('description');
         $this->secret_key = trim((string) $this->get_option('secret_key'));
         $this->publishable_key = trim((string) $this->get_option('publishable_key'));
 
@@ -60,6 +59,23 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
     public static function get_icon_url()
     {
         return DEBIPRO_PLUGIN_URL . 'assets/images/debi-logo.svg';
+    }
+
+    /**
+     * Checkout description shown below the payment method title.
+     *
+     * Sandbox is inferred from the publishable key prefix (pk_test_…); production
+     * checkout shows no description.
+     *
+     * @return string
+     */
+    public function get_description()
+    {
+        if ('test' !== DEBIPRO_Keys::environment($this->publishable_key)) {
+            return '';
+        }
+
+        return __('Sandbox mode is enabled; no real charges are made.', 'debi-payment-for-woocommerce');
     }
 
     /**
