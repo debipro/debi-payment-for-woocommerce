@@ -199,7 +199,6 @@
 					className: 'debipro-payment-icon',
 					src: settings.icon,
 					alt: settings.title,
-					style: { marginTop: '5px' },
 				})
 				: null,
 		);
