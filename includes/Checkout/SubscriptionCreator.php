@@ -22,11 +22,17 @@ use DebiPro\Infrastructure\DebiClientFactory;
  * id directly — no server-side conversion step is needed. We chain two idempotent
  * API calls after that:
  *
- *   1. customers.create          (reused per logged-in WP user via `id_customer_debi`)
+ *   1. customers.create          (a fresh customer per order)
  *   2. paymentMethods.attach     (links the PM to the customer for recurring charges)
  *   3. subscriptions.create      (the installment plan, billed monthly)
  *
- * Idempotency keys are derived from the blog + order/user so a retried request
+ * The customer is never reused across orders. Debi customer ids are scoped to
+ * the Debi account behind the current site's secret key, so any cache that
+ * outlives that scope — user meta is network-global on multisite, and keys can
+ * be rotated or switched between sandbox and live — eventually sends an id that
+ * belongs to a different account and Debi rejects the subscription.
+ *
+ * Idempotency keys are derived from the blog + order so a retried request
  * (flaky network, double-submit) never creates a duplicate customer or a second
  * subscription for the same order.
  */
@@ -64,14 +70,15 @@ final class SubscriptionCreator {
 
 		$client  = DebiClientFactory::create();
 		$blog_id = (int) ( function_exists( 'get_current_blog_id' ) ? get_current_blog_id() : 1 );
-		$user_id = (int) $order->get_customer_id();
 
 		$order_id    = (int) $order->get_id();
-		$customer_id = self::resolve_customer( $client, $customer, $blog_id, $user_id, $order_id );
+		$customer_id = self::create_customer( $client, $customer, $blog_id, $order_id );
 
 		if ( '' === $customer_id ) {
 			throw new \RuntimeException( 'Could not register the Debi customer.' );
 		}
+
+		$order->update_meta_data( '_debipro_customer_id', $customer_id );
 
 		self::attach_payment_method( $client, $token, $customer_id, $blog_id, $order_id );
 
@@ -103,20 +110,12 @@ final class SubscriptionCreator {
 	}
 
 	/**
-	 * Return the Debi customer id, reusing a stored one for logged-in users
-	 * (user meta `id_customer_debi`) or creating a new customer keyed idempotently
-	 * so retries never duplicate it.
+	 * Create the Debi customer for this order, keyed idempotently to the order so
+	 * retries never duplicate it.
 	 *
 	 * @param array{name: string, email: string, identification_number?: string} $customer
 	 */
-	private static function resolve_customer( DebiClient $client, array $customer, int $blog_id, int $user_id, int $order_id ): string {
-		if ( $user_id > 0 ) {
-			$existing = get_user_meta( $user_id, 'id_customer_debi', true );
-			if ( is_string( $existing ) && '' !== trim( $existing ) ) {
-				return trim( $existing );
-			}
-		}
-
+	private static function create_customer( DebiClient $client, array $customer, int $blog_id, int $order_id ): string {
 		$params         = array(
 			'name'  => (string) ( $customer['name'] ?? '' ),
 			'email' => (string) ( $customer['email'] ?? '' ),
@@ -126,20 +125,12 @@ final class SubscriptionCreator {
 			$params['identification_number'] = $identification;
 		}
 
-		// Logged-in users get a stable per-user key; guests fall back to the order
-		// so a double-submit still resolves to one customer.
-		$idempotency_key = $user_id > 0
-			? sprintf( 'debipro-cust-%d-%d', $blog_id, $user_id )
-			: sprintf( 'debipro-cust-order-%d-%d', $blog_id, $order_id );
+		$created = $client->customers->create(
+			$params,
+			array( 'idempotency_key' => sprintf( 'debipro-cust-order-%d-%d', $blog_id, $order_id ) )
+		);
 
-		$created     = $client->customers->create( $params, array( 'idempotency_key' => $idempotency_key ) );
-		$customer_id = isset( $created->id ) ? (string) $created->id : '';
-
-		if ( '' !== $customer_id && $user_id > 0 ) {
-			update_user_meta( $user_id, 'id_customer_debi', $customer_id );
-		}
-
-		return $customer_id;
+		return isset( $created->id ) ? (string) $created->id : '';
 	}
 
 	/**

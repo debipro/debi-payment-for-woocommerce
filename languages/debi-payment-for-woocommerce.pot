@@ -90,7 +90,7 @@ msgid "Enable/Disable"
 msgstr ""
 
 #: class-debipro-payment-gateway.php:242
-msgid "Enable Custom Payment"
+msgid "Enable Debi Payments"
 msgstr ""
 
 #: class-debipro-payment-gateway.php:246

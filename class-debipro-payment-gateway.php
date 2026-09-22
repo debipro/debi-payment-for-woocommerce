@@ -266,7 +266,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             'enabled' => array(
                 'title' => __('Enable/Disable', 'debi-payment-for-woocommerce'),
                 'type' => 'checkbox',
-                'label' => __('Enable Custom Payment', 'debi-payment-for-woocommerce'),
+                'label' => __('Enable Debi Payments', 'debi-payment-for-woocommerce'),
                 'default' => 'no',
             ),
             'title' => array(
