@@ -1,6 +1,6 @@
 {
     "name": "debi-payment-for-woocommerce",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "description": "Official Debi payment gateway integration for WooCommerce.",
     "private": true,
     "license": "GPL-2.0-or-later",

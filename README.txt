@@ -3,7 +3,7 @@ Contributors: systemdebi
 Tags: payment, gateway, debit, installments, subscriptions
 Requires at least: 6.5
 Tested up to: 7.0
-Stable tag: 1.1.1
+Stable tag: 1.1.2
 Requires PHP: 8.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -117,6 +117,10 @@ Yes. Use sandbox keys (sk_test_... / pk_test_...) to test, then switch to live k
 Yes! The plugin is fully translatable. Translation files can be created using the .pot template in the languages folder.
 
 == Changelog ==
+
+= 1.1.2 =
+* Fixed: create a fresh Debi customer per order (never reuse a cached customer id across orders or sites)
+* Clarified the gateway enable label ("Enable Debi Payments")
 
 = 1.1.1 =
 * Fixed: choosing the highest number of installments offered for a product no longer rejects the order at checkout
