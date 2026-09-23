@@ -38,6 +38,18 @@ if ( ! class_exists( 'WC_Order' ) ) {
 			$this->notes[] = $note;
 		}
 
+		public function add_order_note( $note ) {
+			$this->notes[] = $note;
+		}
+
+		public function get_total() {
+			return $this->meta['_total'] ?? ( $this->meta['_debipro_final_price'] ?? '0' );
+		}
+
+		public function get_id() {
+			return $this->id ?? 0;
+		}
+
 		public function save() {
 			$this->saved = true;
 		}
