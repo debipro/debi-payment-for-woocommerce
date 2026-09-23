@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace DebiPro\Checkout;
 
 use Debi\DebiClient;
+use Debi\Exception\ExceptionInterface;
 use DebiPro\Infrastructure\DebiClientFactory;
 
 /**
@@ -20,11 +21,16 @@ use DebiPro\Infrastructure\DebiClientFactory;
  * browser by js.debi.pro (strict mode); confirmPaymentMethod() creates the
  * payment method server-side via the publishable key and returns its persistent
  * id directly — no server-side conversion step is needed. We chain two idempotent
- * API calls after that:
+ * API calls after that, plus a best-effort attach:
  *
  *   1. customers.create          (a fresh customer per order)
- *   2. paymentMethods.attach     (links the PM to the customer for recurring charges)
+ *   2. paymentMethods.attach     (best-effort; see below)
  *   3. subscriptions.create      (the installment plan, billed monthly)
+ *
+ * Attach is attempted so the PM is linked to this order's customer when Debi
+ * allows it. If attach fails (e.g. the PM is already attached to another
+ * customer), we log and continue: subscriptions.create still receives
+ * `payment_method_id` + `customer_id`, matching the headless CDC path.
  *
  * The customer is never reused across orders. Debi customer ids are scoped to
  * the Debi account behind the current site's secret key, so any cache that
@@ -146,11 +152,33 @@ final class SubscriptionCreator {
 			: (int) gmdate( 'j' );
 	}
 
+	/**
+	 * Best-effort link of the payment method to this order's customer.
+	 *
+	 * Failures are swallowed: the subscription is still created with the raw
+	 * `payment_method_id`, which is enough for Debi to charge (CDC does the
+	 * same and never calls attach).
+	 */
 	private static function attach_payment_method( DebiClient $client, string $token, string $customer_id, int $blog_id, int $order_id ): void {
-		$client->paymentMethods->attach(
-			$token,
-			$customer_id,
-			array( 'idempotency_key' => sprintf( 'debipro-attach-%d-%d', $blog_id, $order_id ) )
-		);
+		try {
+			$client->paymentMethods->attach(
+				$token,
+				$customer_id,
+				array( 'idempotency_key' => sprintf( 'debipro-attach-%d-%d', $blog_id, $order_id ) )
+			);
+		} catch ( ExceptionInterface $e ) {
+			$message = sprintf(
+				'Debi payment method attach skipped for order %d (customer %s): %s',
+				$order_id,
+				$customer_id,
+				$e->getMessage()
+			);
+			if ( function_exists( 'wc_get_logger' ) ) {
+				wc_get_logger()->warning( $message, array( 'source' => 'debipro' ) );
+			} else {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				error_log( '[debipro] ' . $message );
+			}
+		}
 	}
 }
