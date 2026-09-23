@@ -27,5 +27,5 @@ Debi is the money ledger; WooCommerce holds a summarized **payment projection** 
 ## Consequences
 
 - Existing Debi webhook endpoints must have `enabled_events` updated (installer updates in place).
-- CDC headless checkout should set `_debipro_origin=installment_plan` when it starts writing that meta (plugin checkout already does).
+- Any integration that creates Debi subscriptions outside this plugin’s checkout (e.g. a headless API) should set `_debipro_origin=installment_plan` on the WooCommerce order when it stores `_debipro_subscription_id`, so payment webhooks update that order instead of creating an inbound one.
 - Reconcile CLI is mandatory safety net when payment webhooks are missed.
