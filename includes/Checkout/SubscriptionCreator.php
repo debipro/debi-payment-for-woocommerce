@@ -30,7 +30,7 @@ use DebiPro\Infrastructure\DebiClientFactory;
  * Attach is attempted so the PM is linked to this order's customer when Debi
  * allows it. If attach fails (e.g. the PM is already attached to another
  * customer), we log and continue: subscriptions.create still receives
- * `payment_method_id` + `customer_id`, matching the headless CDC path.
+ * `payment_method_id` + `customer_id`, matching typical headless checkout paths.
  *
  * The customer is never reused across orders. Debi customer ids are scoped to
  * the Debi account behind the current site's secret key, so any cache that
@@ -156,8 +156,8 @@ final class SubscriptionCreator {
 	 * Best-effort link of the payment method to this order's customer.
 	 *
 	 * Failures are swallowed: the subscription is still created with the raw
-	 * `payment_method_id`, which is enough for Debi to charge (CDC does the
-	 * same and never calls attach).
+	 * `payment_method_id`, which is enough for Debi to charge (headless
+	 * integrations often do the same and never call attach).
 	 */
 	private static function attach_payment_method( DebiClient $client, string $token, string $customer_id, int $blog_id, int $order_id ): void {
 		try {

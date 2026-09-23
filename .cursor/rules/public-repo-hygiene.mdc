@@ -1,0 +1,30 @@
+---
+description: This GitHub/wordpress.org repo is public — never commit private client or secret material.
+alwaysApply: true
+---
+
+# Public repository hygiene
+
+`debi-payment-for-woocommerce` is **public** (GitHub + wordpress.org). Everything that lands on `main` / a PR / a release zip is visible on the internet. Treat every comment, doc, ADR, test fixture, and commit message as public.
+
+## Never commit
+
+- **Client / merchant names** or private project codenames (e.g. a specific nonprofit’s internal stack). Speak of “headless checkout”, “API integrations”, “merchant stores” instead.
+- **Secrets**: API keys (`sk_*`, `pk_*`), webhook signing secrets (`whsec_*`), tokens, `.env`, production URLs with credentials, SSH hosts, internal dashboards.
+- **Private ops**: deploy SSH habits, Metabase card/collection ids, cron on a named server, internal runbooks that only one merchant needs.
+- **Grill / chat dumps**, personal notes, or “we don’t trust X” phrased as gossip.
+- **Customer PII** in fixtures (real emails, national ids, card data). Use obvious fakes only.
+
+## OK to commit
+
+- Architecture ADRs and `CONTEXT.md` about **this plugin’s** domain (payment projection, webhooks, meta keys).
+- Generic WooCommerce / Debi API behavior, public Debi docs links, contributor README.
+- Synthetic test data (`customer@example.com`, amounts, fake Debi ids like `SUB1` / `PY1`).
+
+## Where private material goes
+
+Merchant-specific wiring (headless checkout in another repo, prod reconcile schedules, reporting) lives in **that merchant’s private repo or docs**, not here. If a change needs both sides, implement the generic hook/meta contract in this plugin and the client-specific call in the private repo.
+
+## Before opening a PR
+
+Scan the diff for client names, hostnames, keys, and internal URLs. If unsure whether a sentence is merchant-specific, rewrite it to be generic or omit it.

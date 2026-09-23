@@ -3,7 +3,7 @@ Contributors: systemdebi
 Tags: payment, gateway, debit, installments, subscriptions
 Requires at least: 6.5
 Tested up to: 7.1
-Stable tag: 1.1.3
+Stable tag: 1.2.0
 Requires PHP: 8.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -117,6 +117,13 @@ Yes. Use sandbox keys (sk_test_... / pk_test_...) to test, then switch to live k
 Yes! The plugin is fully translatable. Translation files can be created using the .pot template in the languages folder.
 
 == Changelog ==
+
+= 1.2.0 =
+* Payment projection on orders: amount paid / overdue / remaining and Debi payment status meta, recomputed from Debi payment webhooks
+* Webhooks now subscribe to payment.created, payment.updated, payment.retrying, payment.cancelled (subscription.* no longer required)
+* Inbound Debi payments without a checkout order create WooCommerce orders (virtual "Debi Payment" product)
+* Admin: show projection on the order screen; action to record full external settlement
+* WP-CLI: `wp debipro reconcile-orders` rebuilds projections from live Debi data
 
 = 1.1.3 =
 * Softened payment-method attach: if Debi rejects attach (e.g. the card is already linked to another customer), checkout continues and creates the subscription with the payment method id directly

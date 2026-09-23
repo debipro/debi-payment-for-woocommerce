@@ -2,6 +2,8 @@
 
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
+**This repository is public** (GitHub + wordpress.org). Follow `.cursor/rules/public-repo-hygiene.mdc`: no client/codename leaks, no secrets, no private ops docs. ADRs and `CONTEXT.md` are fine when they describe this plugin generically.
+
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
 ## 1. Think Before Coding

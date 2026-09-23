@@ -386,14 +386,14 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                             <span class="debipro-test-result" data-result-for="webhook" role="status" aria-live="polite"></span>
                         </p>
                         <p class="description">
-                            <?php esc_html_e('Uses your secret key to create the endpoint at Debi (subscription.cancelled, subscription.finished) if it does not exist yet, and fills in the signing secret below. Save changes to persist it.', 'debi-payment-for-woocommerce'); ?>
+                            <?php esc_html_e('Uses your secret key to create the endpoint at Debi (payment.created, payment.updated, payment.retrying, payment.cancelled) if it does not exist yet, updates its events if stale, and fills in the signing secret below. Save changes to persist it.', 'debi-payment-for-woocommerce'); ?>
                         </p>
                     <?php else : ?>
                         <p class="description">
                             <?php
                             printf(
                                 /* translators: 1: production dashboard link, 2: testing dashboard link. */
-                                esc_html__('This site is not publicly reachable, so automatic setup is disabled. Add this URL as a webhook endpoint (events: subscription.cancelled, subscription.finished) in your Debi dashboard — Production: %1$s · Testing: %2$s — then paste its signing secret below.', 'debi-payment-for-woocommerce'),
+                                esc_html__('This site is not publicly reachable, so automatic setup is disabled. Add this URL as a webhook endpoint (events: payment.created, payment.updated, payment.retrying, payment.cancelled) in your Debi dashboard — Production: %1$s · Testing: %2$s — then paste its signing secret below.', 'debi-payment-for-woocommerce'),
                                 '<a href="https://debi.pro/dashboard/developers" target="_blank" rel="noopener noreferrer">debi.pro/dashboard/developers</a>',
                                 '<a href="https://debi-test.pro/dashboard/developers" target="_blank" rel="noopener noreferrer">debi-test.pro/dashboard/developers</a>'
                             );
@@ -480,12 +480,18 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         // navigates away without pressing "Save changes".
         self::update_gateway_setting('webhook_secret', $result['secret']);
 
+        $message = __('Existing webhook found; signing secret saved.', 'debi-payment-for-woocommerce');
+        if ( ! empty( $result['created'] ) ) {
+            $message = __('Webhook created and signing secret saved.', 'debi-payment-for-woocommerce');
+        } elseif ( ! empty( $result['updated'] ) ) {
+            $message = __('Existing webhook updated with payment events; signing secret saved.', 'debi-payment-for-woocommerce');
+        }
+
         wp_send_json_success(array(
             'secret'  => $result['secret'],
             'created' => (bool) $result['created'],
-            'message' => $result['created']
-                ? __('Webhook created and signing secret saved.', 'debi-payment-for-woocommerce')
-                : __('Existing webhook found; signing secret saved.', 'debi-payment-for-woocommerce'),
+            'updated' => ! empty( $result['updated'] ),
+            'message' => $message,
         ));
     }
 
@@ -1003,13 +1009,16 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             return false;
         }
 
-        // Stored via the order data store (HPOS-safe): the webhook handler looks
-        // the order up by this exact meta key.
+        // Stored via the order data store (HPOS-safe): payment webhooks look the
+        // order up by subscription id and recompute the payment projection.
         $order->update_meta_data('_debipro_subscription_id', $subscription_id);
+        $order->update_meta_data('_debipro_origin', 'installment_plan');
+        $order->update_meta_data('_debipro_payment_status', 'current');
         $order->save();
 
-        // Moving to 'processing' also reduces stock; the webhook later moves it
-        // to completed (subscription.finished) or cancelled (subscription.cancelled).
+        // Moving to 'processing' also reduces stock. Payment webhooks later move
+        // it to completed (Debi subscription finished ∧ paid ≥ target) or
+        // cancelled (Debi subscription cancelled).
         $order->update_status('processing');
 
         if (function_exists('WC') && WC()->cart) {

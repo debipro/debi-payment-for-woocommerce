@@ -64,10 +64,13 @@ final class WebhookController {
 			return new \WP_REST_Response( array( 'error' => 'invalid_signature' ), 400 );
 		}
 
+		$ids = self::ids_from( $event );
+
 		$result = OrderSync::handle(
 			(string) ( $event->id ?? '' ),
 			(string) ( $event->type ?? '' ),
-			self::subscription_id_from( $event )
+			$ids['payment_id'],
+			$ids['subscription_id']
 		);
 
 		// Always acknowledge once the signature checks out, so Debi stops
@@ -93,27 +96,48 @@ final class WebhookController {
 	}
 
 	/**
-	 * Extract the subscription id an event refers to. For subscription.* events
-	 * Debi sets `resource_id` to the subscription id; we fall back to the nested
-	 * `data.object.id` for resilience.
+	 * Extract payment and subscription ids from a Debi event.
+	 *
+	 * @return array{payment_id: string, subscription_id: string}
 	 */
-	private static function subscription_id_from( Event $event ): string {
-		$resource_id = $event->resource_id ?? null;
-		if ( is_string( $resource_id ) && '' !== $resource_id ) {
-			return $resource_id;
+	public static function ids_from( Event $event ): array {
+		$payment_id      = '';
+		$subscription_id = '';
+		$type            = (string) ( $event->type ?? '' );
+		$resource        = (string) ( $event->resource ?? '' );
+		$resource_id     = is_string( $event->resource_id ?? null ) ? (string) $event->resource_id : '';
+
+		if ( 0 === strpos( $type, 'payment.' ) || 'payment' === $resource ) {
+			$payment_id = $resource_id;
+		}
+		if ( 0 === strpos( $type, 'subscription.' ) || 'subscription' === $resource ) {
+			$subscription_id = $resource_id;
 		}
 
 		$data = $event->data ?? null;
 		if ( $data instanceof \Debi\DebiObject ) {
 			$object = $data->object ?? null;
 			if ( $object instanceof \Debi\DebiObject ) {
-				$id = $object->id ?? null;
-				if ( is_string( $id ) ) {
-					return $id;
+				$object_name = isset( $object->object ) ? (string) $object->object : '';
+				$id          = isset( $object->id ) ? (string) $object->id : '';
+				if ( 'payment' === $object_name || ( '' === $object_name && '' === $payment_id && 0 === strpos( $type, 'payment.' ) ) ) {
+					if ( '' !== $id ) {
+						$payment_id = $id;
+					}
+					$sub = $object->subscription ?? null;
+					if ( is_string( $sub ) && '' !== $sub ) {
+						$subscription_id = $sub;
+					}
+				}
+				if ( 'subscription' === $object_name && '' !== $id ) {
+					$subscription_id = $id;
 				}
 			}
 		}
 
-		return '';
+		return array(
+			'payment_id'      => $payment_id,
+			'subscription_id' => $subscription_id,
+		);
 	}
 }

@@ -15,7 +15,7 @@
  * Plugin Name:       Debi Payment for WooCommerce
  * Plugin URI:        https://github.com/debipro/debi-payment-for-woocommerce
  * Description:       Official Debi payment gateway integration for WooCommerce. Accept credit cards with installments and automatic debit payments.
- * Version:           1.1.3
+ * Version:           1.2.0
  * Author:            DEBI
  * Author URI:        https://github.com/debipro
  * License:           GPL-2.0+
@@ -42,7 +42,7 @@ if (!defined('DEBIPRO_PLUGIN_URL')) {
 	define('DEBIPRO_PLUGIN_URL', plugin_dir_url(__FILE__));
 }
 if (!defined('DEBIPRO_PLUGIN_VERSION')) {
-	define('DEBIPRO_PLUGIN_VERSION', '1.1.3');
+	define('DEBIPRO_PLUGIN_VERSION', '1.2.0');
 }
 if (!defined('DEBIPRO_PLUGIN_DIR')) {
 	define('DEBIPRO_PLUGIN_DIR', plugin_dir_path(__FILE__));
@@ -134,8 +134,11 @@ function debipro_init_payment_gateway() {
 	add_action('admin_enqueue_scripts', array('DEBIPRO_Payment_Gateway', 'enqueue_admin_assets'));
 
 	// Webhook endpoint: POST /wp-json/debipro/v1/webhook. Registered on
-	// rest_api_init so Debi can drive subscription → order status updates.
+	// rest_api_init so Debi payment events can drive the order projection.
 	add_action('rest_api_init', array('DebiPro\\Webhook\\WebhookController', 'register_routes'));
+
+	\DebiPro\Admin\OrderActions::init();
+	\DebiPro\Cli\ReconcileOrdersCommand::register();
 }
 
 /**
