@@ -13,19 +13,19 @@ namespace DebiPro\Projection;
  */
 final class OrderMeta {
 
-	public const SUBSCRIPTION_ID       = '_debipro_subscription_id';
-	public const PAYMENT_ID            = '_debipro_payment_id';
-	public const CUSTOMER_ID           = '_debipro_customer_id';
-	public const FINAL_PRICE           = '_debipro_final_price';
-	public const ORIGIN                = '_debipro_origin';
-	public const PAYMENT_STATUS        = '_debipro_payment_status';
-	public const SUBSCRIPTION_STATUS   = '_debipro_subscription_status';
-	public const AMOUNT_PAID           = '_debipro_amount_paid';
-	public const AMOUNT_OVERDUE        = '_debipro_amount_overdue';
-	public const AMOUNT_REMAINING      = '_debipro_amount_remaining';
-	public const AMOUNT_EXTERNAL       = '_debipro_amount_external';
-	public const PAYMENTS_SYNCED_AT    = '_debipro_payments_synced_at';
-	public const PROCESSED_EVENTS      = '_debipro_processed_events';
+	public const SUBSCRIPTION_ID     = '_debipro_subscription_id';
+	public const PAYMENT_ID          = '_debipro_payment_id';
+	public const CUSTOMER_ID         = '_debipro_customer_id';
+	public const FINAL_PRICE         = '_debipro_final_price';
+	public const ORIGIN              = '_debipro_origin';
+	public const PAYMENT_STATUS      = '_debipro_payment_status';
+	public const SUBSCRIPTION_STATUS = '_debipro_subscription_status';
+	public const AMOUNT_PAID         = '_debipro_amount_paid';
+	public const AMOUNT_OVERDUE      = '_debipro_amount_overdue';
+	public const AMOUNT_REMAINING    = '_debipro_amount_remaining';
+	public const AMOUNT_EXTERNAL     = '_debipro_amount_external';
+	public const PAYMENTS_SYNCED_AT  = '_debipro_payments_synced_at';
+	public const PROCESSED_EVENTS    = '_debipro_processed_events';
 
 	public const ORIGIN_INSTALLMENT_PLAN          = 'installment_plan';
 	public const ORIGIN_DEBI_SUBSCRIPTION_PAYMENT = 'debi_subscription_payment';

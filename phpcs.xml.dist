@@ -27,14 +27,18 @@
         </properties>
     </rule>
 
-    <!-- The PSR-4 domain layer (includes/Checkout, /Infrastructure, /Webhook) and -->
-    <!-- tests use PascalCase filenames; the WP file-naming sniff does not apply. -->
+    <!-- The PSR-4 domain layer (includes/Checkout, /Infrastructure, /Webhook, -->
+    <!-- /Projection, /Admin, /Cli) and tests use PascalCase filenames; the WP -->
+    <!-- file-naming sniff does not apply. -->
     <!-- (includes/class-debipro-keys.php keeps the WP convention and is still checked.) -->
     <rule ref="WordPress.Files.FileName">
         <exclude-pattern>tests/*</exclude-pattern>
         <exclude-pattern>includes/Checkout/*</exclude-pattern>
         <exclude-pattern>includes/Infrastructure/*</exclude-pattern>
         <exclude-pattern>includes/Webhook/*</exclude-pattern>
+        <exclude-pattern>includes/Projection/*</exclude-pattern>
+        <exclude-pattern>includes/Admin/*</exclude-pattern>
+        <exclude-pattern>includes/Cli/*</exclude-pattern>
     </rule>
     <rule ref="WordPress.WP.AlternativeFunctions">
         <exclude-pattern>tests/*</exclude-pattern>
@@ -51,6 +55,9 @@
         <exclude-pattern>includes/Checkout/*</exclude-pattern>
         <exclude-pattern>includes/Infrastructure/*</exclude-pattern>
         <exclude-pattern>includes/Webhook/*</exclude-pattern>
+        <exclude-pattern>includes/Projection/*</exclude-pattern>
+        <exclude-pattern>includes/Admin/*</exclude-pattern>
+        <exclude-pattern>includes/Cli/*</exclude-pattern>
     </rule>
 
     <!-- Process .php files. -->

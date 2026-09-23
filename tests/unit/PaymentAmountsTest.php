@@ -18,11 +18,26 @@ final class PaymentAmountsTest extends TestCase {
 	public function test_summarize_splits_approved_and_overdue(): void {
 		$sums = PaymentAmounts::summarize(
 			array(
-				array( 'amount' => 100, 'status' => 'approved' ),
-				array( 'amount' => 100, 'status' => 'rejected' ),
-				array( 'amount' => 50, 'status' => 'cancelled' ),
-				array( 'amount' => 100, 'status' => 'pending_submission' ),
-				array( 'amount' => 100, 'status' => 'submitted' ),
+				array(
+					'amount' => 100,
+					'status' => 'approved',
+				),
+				array(
+					'amount' => 100,
+					'status' => 'rejected',
+				),
+				array(
+					'amount' => 50,
+					'status' => 'cancelled',
+				),
+				array(
+					'amount' => 100,
+					'status' => 'pending_submission',
+				),
+				array(
+					'amount' => 100,
+					'status' => 'submitted',
+				),
 			)
 		);
 

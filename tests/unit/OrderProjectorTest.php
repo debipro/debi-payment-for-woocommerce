@@ -26,8 +26,14 @@ final class OrderProjectorTest extends TestCase {
 			$order,
 			'active',
 			array(
-				array( 'amount' => 100, 'status' => 'approved' ),
-				array( 'amount' => 100, 'status' => 'rejected' ),
+				array(
+					'amount' => 100,
+					'status' => 'approved',
+				),
+				array(
+					'amount' => 100,
+					'status' => 'rejected',
+				),
 			)
 		);
 
@@ -48,8 +54,14 @@ final class OrderProjectorTest extends TestCase {
 			$order,
 			'finished',
 			array(
-				array( 'amount' => 100, 'status' => 'approved' ),
-				array( 'amount' => 100, 'status' => 'approved' ),
+				array(
+					'amount' => 100,
+					'status' => 'approved',
+				),
+				array(
+					'amount' => 100,
+					'status' => 'approved',
+				),
 			)
 		);
 
@@ -67,8 +79,14 @@ final class OrderProjectorTest extends TestCase {
 			$order,
 			'cancelled',
 			array(
-				array( 'amount' => 100, 'status' => 'approved' ),
-				array( 'amount' => 100, 'status' => 'cancelled' ),
+				array(
+					'amount' => 100,
+					'status' => 'approved',
+				),
+				array(
+					'amount' => 100,
+					'status' => 'cancelled',
+				),
 			)
 		);
 
@@ -85,7 +103,12 @@ final class OrderProjectorTest extends TestCase {
 		OrderProjector::apply(
 			$order,
 			'active',
-			array( array( 'amount' => 80, 'status' => 'rejected' ) )
+			array(
+				array(
+					'amount' => 80,
+					'status' => 'rejected',
+				),
+			)
 		);
 
 		$this->assertSame( 'processing', $order->status );
