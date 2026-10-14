@@ -42,6 +42,10 @@ final class OrderProjectorTest extends TestCase {
 		$this->assertSame( '100', $order->get_meta( OrderMeta::AMOUNT_PAID ) );
 		$this->assertSame( '100', $order->get_meta( OrderMeta::AMOUNT_OVERDUE ) );
 		$this->assertSame( '200', $order->get_meta( OrderMeta::AMOUNT_REMAINING ) );
+		$this->assertSame( '1', $order->get_meta( OrderMeta::PAYMENTS_APPROVED ) );
+		$this->assertSame( '1', $order->get_meta( OrderMeta::PAYMENTS_OVERDUE ) );
+		$this->assertSame( '0', $order->get_meta( OrderMeta::PAYMENTS_REMAINING ) );
+		$this->assertSame( '2', $order->get_meta( OrderMeta::PAYMENTS_TOTAL ) );
 		$this->assertSame( 'processing', $order->status );
 	}
 

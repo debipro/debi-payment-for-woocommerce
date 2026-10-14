@@ -35,9 +35,20 @@ final class OrderProjector {
 			$target
 		);
 
+		// Counts follow the capped amounts: once external settlement clears debt /
+		// remaining money, those buckets must read zero in the UI too.
+		$payments_overdue   = $merged['amount_overdue'] > 0 ? $sums['payments_overdue'] : 0;
+		$payments_remaining = $merged['amount_remaining'] > 0 ? $sums['payments_remaining'] : 0;
+		$payments_approved  = $sums['payments_approved'];
+		$payments_total     = $sums['payments_total'];
+
 		$order->update_meta_data( OrderMeta::AMOUNT_PAID, (string) $merged['amount_paid'] );
 		$order->update_meta_data( OrderMeta::AMOUNT_OVERDUE, (string) $merged['amount_overdue'] );
 		$order->update_meta_data( OrderMeta::AMOUNT_REMAINING, (string) $merged['amount_remaining'] );
+		$order->update_meta_data( OrderMeta::PAYMENTS_APPROVED, (string) $payments_approved );
+		$order->update_meta_data( OrderMeta::PAYMENTS_OVERDUE, (string) $payments_overdue );
+		$order->update_meta_data( OrderMeta::PAYMENTS_REMAINING, (string) $payments_remaining );
+		$order->update_meta_data( OrderMeta::PAYMENTS_TOTAL, (string) $payments_total );
 		$order->update_meta_data( OrderMeta::SUBSCRIPTION_STATUS, $subscription_status );
 		$order->update_meta_data(
 			OrderMeta::PAYMENTS_SYNCED_AT,

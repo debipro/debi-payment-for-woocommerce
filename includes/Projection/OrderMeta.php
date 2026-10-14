@@ -24,6 +24,10 @@ final class OrderMeta {
 	public const AMOUNT_OVERDUE      = '_debipro_amount_overdue';
 	public const AMOUNT_REMAINING    = '_debipro_amount_remaining';
 	public const AMOUNT_EXTERNAL     = '_debipro_amount_external';
+	public const PAYMENTS_APPROVED   = '_debipro_payments_approved';
+	public const PAYMENTS_OVERDUE    = '_debipro_payments_overdue';
+	public const PAYMENTS_REMAINING  = '_debipro_payments_remaining';
+	public const PAYMENTS_TOTAL      = '_debipro_payments_total';
 	public const PAYMENTS_SYNCED_AT  = '_debipro_payments_synced_at';
 	public const PROCESSED_EVENTS    = '_debipro_processed_events';
 

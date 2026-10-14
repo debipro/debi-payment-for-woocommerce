@@ -9,7 +9,7 @@ declare(strict_types=1);
 namespace DebiPro\Projection;
 
 /**
- * Pure recompute of paid / overdue totals from Debi payment statuses.
+ * Pure recompute of paid / overdue totals and payment counts from Debi statuses.
  *
  * Unit-testable without WordPress or HTTP.
  */
@@ -23,11 +23,21 @@ final class PaymentAmounts {
 
 	/**
 	 * @param list<array{amount?: float|int|string, status?: string}> $payments
-	 * @return array{amount_paid: float, amount_overdue: float}
+	 * @return array{
+	 *     amount_paid: float,
+	 *     amount_overdue: float,
+	 *     payments_approved: int,
+	 *     payments_overdue: int,
+	 *     payments_remaining: int,
+	 *     payments_total: int
+	 * }
 	 */
 	public static function summarize( array $payments ): array {
-		$paid    = 0.0;
-		$overdue = 0.0;
+		$paid             = 0.0;
+		$overdue          = 0.0;
+		$payments_approved  = 0;
+		$payments_overdue   = 0;
+		$payments_remaining = 0;
 
 		foreach ( $payments as $payment ) {
 			$amount = self::money( $payment['amount'] ?? 0 );
@@ -35,14 +45,23 @@ final class PaymentAmounts {
 
 			if ( in_array( $status, self::PAID_STATUSES, true ) ) {
 				$paid += $amount;
+				++$payments_approved;
 			} elseif ( in_array( $status, self::OVERDUE_STATUSES, true ) ) {
 				$overdue += $amount;
+				++$payments_overdue;
+			} else {
+				// pending_submission, submitted, scheduled, … — still due in the future.
+				++$payments_remaining;
 			}
 		}
 
 		return array(
-			'amount_paid'    => self::money( $paid ),
-			'amount_overdue' => self::money( $overdue ),
+			'amount_paid'         => self::money( $paid ),
+			'amount_overdue'      => self::money( $overdue ),
+			'payments_approved'   => $payments_approved,
+			'payments_overdue'    => $payments_overdue,
+			'payments_remaining'  => $payments_remaining,
+			'payments_total'      => $payments_approved + $payments_overdue + $payments_remaining,
 		);
 	}
 

@@ -43,6 +43,10 @@ final class PaymentAmountsTest extends TestCase {
 
 		$this->assertSame( 100.0, $sums['amount_paid'] );
 		$this->assertSame( 150.0, $sums['amount_overdue'] );
+		$this->assertSame( 1, $sums['payments_approved'] );
+		$this->assertSame( 2, $sums['payments_overdue'] );
+		$this->assertSame( 2, $sums['payments_remaining'] );
+		$this->assertSame( 5, $sums['payments_total'] );
 	}
 
 	public function test_with_external_caps_overdue_and_remaining(): void {
