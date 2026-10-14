@@ -86,6 +86,36 @@ final class OrderProjector {
 		}
 
 		$order->save();
+
+		/**
+		 * Fires after a payment projection is written to an order.
+		 *
+		 * Generic extension point for integrations that react to money movement
+		 * (accounting/invoicing, analytics, notifications). The plugin itself does
+		 * nothing with it; merchant-specific side effects live in the integrating
+		 * code, not here.
+		 *
+		 * @param \WC_Order $order               The order whose projection was applied.
+		 * @param array     $payments            Payment rows ([{id, amount, status}, ...]).
+		 * @param string    $subscription_status Debi subscription status ('' for inbound one-offs).
+		 * @param array     $context             {
+		 *     @type bool   $is_checkout    Whether this is a checkout installment plan (vs inbound).
+		 *     @type string $payment_status Derived merchant payment status (current/past_due/paid/cancelled).
+		 *     @type string $result         Short projection result code.
+		 * }
+		 */
+		do_action(
+			'debipro_payment_projected',
+			$order,
+			$payments,
+			$subscription_status,
+			array(
+				'is_checkout'    => $is_checkout,
+				'payment_status' => $rules['payment_status'],
+				'result'         => $result,
+			)
+		);
+
 		return $result;
 	}
 
