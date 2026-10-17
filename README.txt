@@ -3,7 +3,7 @@ Contributors: systemdebi
 Tags: payment, gateway, debit, installments, subscriptions
 Requires at least: 6.5
 Tested up to: 7.1
-Stable tag: 1.2.0
+Stable tag: 1.3.0
 Requires PHP: 8.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -117,6 +117,9 @@ Yes. Use sandbox keys (sk_test_... / pk_test_...) to test, then switch to live k
 Yes! The plugin is fully translatable. Translation files can be created using the .pot template in the languages folder.
 
 == Changelog ==
+
+= 1.3.0 =
+* Added `debipro_webhook_received` action: a generic forward of every signature-verified webhook event (raw event object, raw payload, and extracted ids / result) so integrations can react to the specific event instead of re-deriving it from the projected order state
 
 = 1.2.0 =
 * Payment projection on orders: amount paid / overdue / remaining and Debi payment status meta, recomputed from Debi payment webhooks

@@ -73,6 +73,39 @@ final class WebhookController {
 			$ids['subscription_id']
 		);
 
+		/**
+		 * Fires after a signature-verified Debi webhook has been processed.
+		 *
+		 * Generic forward of the raw event for any integration (accounting/invoicing,
+		 * notifications, analytics, or a bridge that re-sends the event elsewhere). The
+		 * plugin attaches no policy and computes nothing extra: subscribers decide what,
+		 * if anything, to do with the event. The raw $payload is passed verbatim so a
+		 * consumer can re-verify or forward it with its signature intact.
+		 *
+		 * @param \Debi\Resource\Event $event   The verified event object.
+		 * @param string               $payload Raw request body, exactly as received.
+		 * @param array                $context {
+		 *     @type string $payment_id      Payment id when the event resource is a payment.
+		 *     @type string $subscription_id Subscription id when known.
+		 *     @type string $event_type      Debi event type (e.g. 'payment.updated').
+		 *     @type string $event_id        Debi event id (idempotency).
+		 *     @type string $result          OrderSync result code (e.g. 'projected_paid',
+		 *                                    'duplicate', 'ignored'); lets consumers filter.
+		 * }
+		 */
+		do_action(
+			'debipro_webhook_received',
+			$event,
+			$payload,
+			array(
+				'payment_id'      => $ids['payment_id'],
+				'subscription_id' => $ids['subscription_id'],
+				'event_type'      => (string) ( $event->type ?? '' ),
+				'event_id'        => (string) ( $event->id ?? '' ),
+				'result'          => $result,
+			)
+		);
+
 		// Always acknowledge once the signature checks out, so Debi stops
 		// retrying even when the event is one we intentionally ignore.
 		return new \WP_REST_Response(
