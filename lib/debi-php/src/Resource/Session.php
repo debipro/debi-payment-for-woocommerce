@@ -12,9 +12,19 @@ use Debi\DebiObject;
  *
  * Sample id: `SSmQ6j9NWxblNv`.
  *
- * The hosted page lives at `public_uri`; there is no `url`, `status`,
- * `metadata` or `expires_at` field on the wire. A finished session is one with
- * a `completed_at`.
+ * The hosted page lives at `public_uri`; there is no `url`, `status` or
+ * `expires_at` field on the wire. A finished session is one with a
+ * `completed_at`.
+ *
+ * `metadata` passed to {@see \Debi\Service\SessionService::create()} is stored
+ * on the session itself and propagates to the `payment`, `subscription` or
+ * `mandate` the session produces (reachable at `resource`). `customer_metadata`
+ * likewise lands on the created `Customer`.
+ *
+ * There is no `installment` session kind: `kind` is always `payment`,
+ * `subscription` or `mandate`. Installments are a `payment` session that also
+ * sets `installments` (fixed count) or `max_installments` (the customer picks
+ * the count); both apply only when `kind` is `payment`.
  *
  * @property string      $id
  * @property string      $uuid
@@ -28,8 +38,8 @@ use Debi\DebiObject;
  * @property ?string     $customer_gateway_identifier
  * @property ?bool       $smart_merge
  * @property ?bool       $editable_amount
- * @property ?int        $installments
- * @property ?int        $max_installments
+ * @property ?int        $installments                payment sessions only; fixed number of installments
+ * @property ?int        $max_installments            payment sessions only; lets the customer pick the installment count
  * @property ?string     $interval_unit
  * @property ?int        $interval
  * @property ?int        $day_of_month
@@ -53,6 +63,7 @@ use Debi\DebiObject;
  * @property ?DebiObject $next_action
  * @property ?DebiObject $resource                    the payment/subscription/mandate the session produced
  * @property ?string     $link_id
+ * @property ?DebiObject $metadata                    key/value pairs stored on the session and copied onto the produced resource
  * @property DebiObject  $user                        branding of the organization that owns the session
  */
 final class Session extends ApiResource
