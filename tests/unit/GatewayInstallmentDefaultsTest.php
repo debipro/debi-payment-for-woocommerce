@@ -73,7 +73,7 @@ final class GatewayInstallmentDefaultsTest extends TestCase {
 			array(
 				'secret_key'               => 'sk_test_abc',
 				'publishable_key'          => 'pk_test_xyz',
-				'default_type'             => 'installment',
+				'default_session_type'             => 'installment',
 				'default_installments'     => '',
 				'default_max_installments' => '',
 			)
@@ -88,7 +88,7 @@ final class GatewayInstallmentDefaultsTest extends TestCase {
 			array(
 				'secret_key'               => 'sk_test_abc',
 				'publishable_key'          => 'pk_test_xyz',
-				'default_type'             => 'installment',
+				'default_session_type'             => 'installment',
 				'default_installments'     => '2',
 				'default_max_installments' => '',
 			)
@@ -103,7 +103,7 @@ final class GatewayInstallmentDefaultsTest extends TestCase {
 			array(
 				'secret_key'               => 'sk_test_abc',
 				'publishable_key'          => 'pk_test_xyz',
-				'default_type'             => 'installment',
+				'default_session_type'             => 'installment',
 				'default_installments'     => '',
 				'default_max_installments' => '12',
 			)
@@ -118,7 +118,7 @@ final class GatewayInstallmentDefaultsTest extends TestCase {
 			array(
 				'secret_key'               => 'sk_test_abc',
 				'publishable_key'          => 'pk_test_xyz',
-				'default_type'             => 'installment',
+				'default_session_type'             => 'installment',
 				'default_installments'     => '2',
 				'default_max_installments' => '12',
 			)
@@ -129,12 +129,12 @@ final class GatewayInstallmentDefaultsTest extends TestCase {
 		$this->assertSame( '', $this->post_field( 'default_max_installments' ) );
 	}
 
-	public function test_process_admin_options_skips_installment_requirement_for_one_time_type(): void {
+	public function test_process_admin_options_skips_installment_requirement_for_payment_type(): void {
 		$saved = $this->submit_settings(
 			array(
 				'secret_key'               => 'sk_test_abc',
 				'publishable_key'          => 'pk_test_xyz',
-				'default_type'             => 'one_time',
+				'default_session_type'             => 'payment',
 				'default_installments'     => '',
 				'default_max_installments' => '',
 			)

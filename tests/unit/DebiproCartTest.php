@@ -12,7 +12,7 @@ namespace Tucuota\DebiPaymentForWooCommerce\Tests\Unit;
 use Brain\Monkey;
 use Brain\Monkey\Functions;
 use DEBIPRO_Cart;
-use DebiProFinancingType;
+use DebiProSessionType;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -37,14 +37,14 @@ final class DebiproCartTest extends TestCase {
 		Functions\when( 'get_option' )->justReturn( array() );
 		Functions\when( 'get_post_meta' )->alias(
 			static function ( int $post_id, string $key ): string {
-				if ( '_debipro_type' !== $key ) {
+				if ( '_debipro_default_session_type' !== $key ) {
 					return '';
 				}
 
 				$types = array(
-					self::PRODUCT_INSTALLMENT => DebiProFinancingType::Installment->value,
-					self::PRODUCT_ONE_TIME_A  => DebiProFinancingType::OneTimePayment->value,
-					self::PRODUCT_ONE_TIME_B  => DebiProFinancingType::OneTimePayment->value,
+					self::PRODUCT_INSTALLMENT => DebiProSessionType::Installment->value,
+					self::PRODUCT_ONE_TIME_A  => DebiProSessionType::Payment->value,
+					self::PRODUCT_ONE_TIME_B  => DebiProSessionType::Payment->value,
 				);
 
 				return $types[ $post_id ] ?? '';
@@ -91,8 +91,8 @@ final class DebiproCartTest extends TestCase {
 	}
 
 	private function invoke_types_are_compatible(
-		DebiProFinancingType $reference,
-		DebiProFinancingType $incoming
+		DebiProSessionType $reference,
+		DebiProSessionType $incoming
 	): bool {
 		$method = new \ReflectionMethod( DEBIPRO_Cart::class, 'types_are_compatible' );
 		$method->setAccessible( true );
@@ -101,7 +101,7 @@ final class DebiproCartTest extends TestCase {
 	}
 
 	/** @param array<string, array{product_id: int}> $items */
-	private function invoke_last_cart_item_type( array $items ): ?DebiProFinancingType {
+	private function invoke_last_cart_item_type( array $items ): ?DebiProSessionType {
 		$method = new \ReflectionMethod( DEBIPRO_Cart::class, 'get_last_cart_item_type' );
 		$method->setAccessible( true );
 
@@ -112,8 +112,8 @@ final class DebiproCartTest extends TestCase {
 	 * @dataProvider provide_type_compatibility_matrix
 	 */
 	public function test_types_are_compatible_matrix(
-		DebiProFinancingType $reference,
-		DebiProFinancingType $incoming,
+		DebiProSessionType $reference,
+		DebiProSessionType $incoming,
 		bool $expected
 	): void {
 		$this->assertSame( $expected, $this->invoke_types_are_compatible( $reference, $incoming ) );
@@ -121,15 +121,15 @@ final class DebiproCartTest extends TestCase {
 
 	public function provide_type_compatibility_matrix(): array {
 		$types = array(
-			DebiProFinancingType::Installment,
-			DebiProFinancingType::OneTimePayment,
+			DebiProSessionType::Installment,
+			DebiProSessionType::Payment,
 		);
 
 		$cases = array();
 		foreach ( $types as $reference ) {
 			foreach ( $types as $incoming ) {
-				$expected = DebiProFinancingType::OneTimePayment === $reference
-					&& DebiProFinancingType::OneTimePayment === $incoming;
+				$expected = DebiProSessionType::Payment === $reference
+					&& DebiProSessionType::Payment === $incoming;
 
 				$cases[ $reference->value . '_with_' . $incoming->value ] = array(
 					$reference,
@@ -149,7 +149,7 @@ final class DebiproCartTest extends TestCase {
 		);
 
 		$this->assertSame(
-			DebiProFinancingType::Installment,
+			DebiProSessionType::Installment,
 			$this->invoke_last_cart_item_type( $items )
 		);
 	}

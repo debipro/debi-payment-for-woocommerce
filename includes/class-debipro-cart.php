@@ -1,9 +1,10 @@
 <?php
 /**
- * Cart validation rules for Debi product types.
+ * Cart validation rules for Debi session types.
  *
- * - Installment products cannot coexist with any other product.
- * - One-time payment products can be added freely among themselves.
+ * - Payment products can be added freely among themselves.
+ * - Installment, subscription and mandate products each require an empty cart
+ *   (they open their own dedicated Debi session).
  * - When the cart is not empty, the incoming product is validated against the
  *   last item added to the cart.
  *
@@ -58,26 +59,26 @@ class DEBIPRO_Cart {
 	}
 
 	/**
-	 * One-time products can stack; installment products require an empty cart.
+	 * Payment products can stack; every other session type requires an empty cart.
 	 *
-	 * @param DebiProFinancingType $reference Last item already in the cart.
-	 * @param DebiProFinancingType $incoming Product being added.
+	 * @param DebiProSessionType $reference Last item already in the cart.
+	 * @param DebiProSessionType $incoming Product being added.
 	 */
-	private static function types_are_compatible( DebiProFinancingType $reference, DebiProFinancingType $incoming ): bool {
-		return DebiProFinancingType::OneTimePayment === $reference
-			&& DebiProFinancingType::OneTimePayment === $incoming;
+	private static function types_are_compatible( DebiProSessionType $reference, DebiProSessionType $incoming ): bool {
+		return DebiProSessionType::Payment === $reference
+			&& DebiProSessionType::Payment === $incoming;
 	}
 
 	/**
-	 * @param DebiProFinancingType $reference
-	 * @param DebiProFinancingType $incoming
+	 * @param DebiProSessionType $reference
+	 * @param DebiProSessionType $incoming
 	 */
-	private static function get_incompatibility_message( DebiProFinancingType $reference, DebiProFinancingType $incoming ): string {
-		if ( DebiProFinancingType::Installment === $reference ) {
+	private static function get_incompatibility_message( DebiProSessionType $reference, DebiProSessionType $incoming ): string {
+		if ( DebiProSessionType::Installment === $reference ) {
 			return __( 'The cart already contains an installment product. You cannot add more products.', 'debi-payment-for-woocommerce' );
 		}
 
-		if ( DebiProFinancingType::Installment === $incoming ) {
+		if ( DebiProSessionType::Installment === $incoming ) {
 			return __( 'You cannot add an installment product together with other products. Please empty the cart first.', 'debi-payment-for-woocommerce' );
 		}
 
@@ -87,7 +88,7 @@ class DEBIPRO_Cart {
 	/**
 	 * @param array<string, array<string, mixed>> $cart_items
 	 */
-	private static function get_last_cart_item_type( array $cart_items ): ?DebiProFinancingType {
+	private static function get_last_cart_item_type( array $cart_items ): ?DebiProSessionType {
 		$last_item = end( $cart_items );
 		if ( empty( $last_item['product_id'] ) ) {
 			return null;
@@ -97,12 +98,12 @@ class DEBIPRO_Cart {
 	}
 
 	/**
-	 * Get the Debi financing type associated with a product.
+	 * Get the Debi session type associated with a product.
 	 *
 	 * @param int $product_id
-	 * @return DebiProFinancingType|null
+	 * @return DebiProSessionType|null
 	 */
-	private static function get_product_type( $product_id ): ?DebiProFinancingType {
+	private static function get_product_type( $product_id ): ?DebiProSessionType {
 		$pf = DEBIPRO_Product_Meta::get_product_financing( (int) $product_id );
 
 		if ( empty( $pf ) || ! is_array( $pf ) || empty( $pf['type'] ) ) {

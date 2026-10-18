@@ -155,7 +155,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         $financing = array(
             'product_id'       => 0,
             'product_title'    => '',
-            'type'             => DebiProFinancingType::Installment,
+            'type'             => DebiProSessionType::Installment,
             'monthly_interest' => 0.0,
             'surcharge'        => 0.0,
             'installments'     => null,
@@ -215,7 +215,9 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         }
 
         $financing = $this->get_cart_financing();
-        if ($financing['type'] === DebiProFinancingType::OneTimePayment) {
+        // Installment options only apply to installment products; every other
+        // session type (payment, subscription, mandate) has no cuotas selector.
+        if ($financing['type'] !== DebiProSessionType::Installment) {
             return [];
         }
 
@@ -303,13 +305,21 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                 'type'        => 'title',
                 'description' => __('These apply when the product does not have its own configuration in the Debi tab.', 'debi-payment-for-woocommerce'),
             ),
-            'default_type' => array(
-                'title'   => __('Product type', 'debi-payment-for-woocommerce'),
+            'default_session_type' => array(
+                'title'   => __('Default checkout type', 'debi-payment-for-woocommerce'),
                 'type'    => 'select',
                 'default' => 'installment',
-                'options' => array(
-                    'installment' => __('Installment', 'debi-payment-for-woocommerce'),
-                    'one_time'    => __('One-time payment', 'debi-payment-for-woocommerce'),
+                'options' => DEBIPRO_Product_Meta::session_type_options(),
+            ),
+            'default_checkout_mode' => array(
+                'title'       => __('Default checkout mode', 'debi-payment-for-woocommerce'),
+                'type'        => 'select',
+                'default'     => 'embedded',
+                'desc_tip'    => true,
+                'description' => __('Embedded: the card is captured on this site. Redirect: the customer is sent to Debi\'s hosted checkout. Products can override this.', 'debi-payment-for-woocommerce'),
+                'options'     => array(
+                    'embedded' => __('Embedded', 'debi-payment-for-woocommerce'),
+                    'redirect' => __('Redirect', 'debi-payment-for-woocommerce'),
                 ),
             ),
             'default_monthly_interest_percentage' => array(
@@ -668,13 +678,13 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             return false;
         }
 
-        $type_key    = $this->get_field_key('default_type');
+        $type_key    = $this->get_field_key('default_session_type');
         $install_key = $this->get_field_key('default_installments');
         $max_key     = $this->get_field_key('default_max_installments');
-        $type        = isset($post_data[$type_key]) ? sanitize_text_field($post_data[$type_key]) : (string) $this->get_option('default_type', 'installment');
-        if (DebiProFinancingType::tryFrom($type) === null) {
-            $_POST[$type_key] = DebiProFinancingType::Installment->value;
-            $type             = DebiProFinancingType::Installment->value;
+        $type        = isset($post_data[$type_key]) ? sanitize_text_field($post_data[$type_key]) : (string) $this->get_option('default_session_type', 'installment');
+        if (DebiProSessionType::tryFrom($type) === null) {
+            $_POST[$type_key] = DebiProSessionType::Installment->value;
+            $type             = DebiProSessionType::Installment->value;
         }
 
         if ('installment' === $type) {
@@ -921,7 +931,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             'debipro-admin-installment-defaults',
             'debiproInstallmentDefaults',
             array(
-                'typeId'     => '#' . $gateway->get_field_key('default_type'),
+                'typeId'     => '#' . $gateway->get_field_key('default_session_type'),
                 'interestId' => '#' . $gateway->get_field_key('default_monthly_interest_percentage'),
                 'fixedId'    => '#' . $gateway->get_field_key('default_installments'),
                 'maxId'      => '#' . $gateway->get_field_key('default_max_installments'),
@@ -953,6 +963,15 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         }
 
         $financing                  = $this->get_cart_financing();
+
+        // Subscription and mandate products open their own Debi session; the
+        // embedded installment-plan checkout here cannot create them yet. Guard
+        // against accidentally charging a monthly plan for such products.
+        if (in_array($financing['type'], array(DebiProSessionType::Subscription, DebiProSessionType::Mandate), true)) {
+            wc_add_notice(__('This product is not available through this checkout yet.', 'debi-payment-for-woocommerce'), 'error');
+            return false;
+        }
+
         $max_inst                   = $financing['max_installments'];
         $cuotas_raw                 = isset($_POST['debipro-cuotas']) ? absint(wp_unslash($_POST['debipro-cuotas'])) : 0;
         $user_selected_installments = $cuotas_raw > 0 ? $cuotas_raw : 1;
@@ -973,6 +992,11 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         $order->update_meta_data('_debipro_final_price', $final_price);
         $order->update_meta_data('_debipro_installment_count', $installments);
         $order->update_meta_data('_debipro_installment_amount', $installment_amount);
+        // Record the originating product so every Debi order carries it in meta,
+        // uniform across payment / installment / subscription / mandate flows.
+        if ($financing['product_id'] > 0) {
+            $order->update_meta_data('_debipro_product_id', (int) $financing['product_id']);
+        }
         if ('' !== $last_four) {
             $order->update_meta_data('_debipro_card_last_4_digits', $last_four);
         }
@@ -1151,10 +1175,10 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         $financing      = \DEBIPRO_Product_Meta::get_product_financing( $product_id );
         $financing_type = $financing['type'];
 
-        if($financing_type == DebiProFinancingType::OneTimePayment)
+        if($financing_type == DebiProSessionType::Payment)
             return 1;
 
-        if($financing_type == DebiProFinancingType::Installment) {
+        if($financing_type == DebiProSessionType::Installment) {
             $fixed_installments = $financing['installments'];
             $max_installments   = $financing['max_installments'];
 

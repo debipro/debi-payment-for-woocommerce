@@ -2,12 +2,14 @@
 /**
  * Per-product Debi configuration meta fields.
  *
- * Adds a "Debi" tab to the WooCommerce product edit page with five fields:
- *   - type             (installment | one_time)
- *   - monthly_interest percentage
- *   - installments     fixed count — mutually exclusive with max_installments
- *   - max_installments customer chooses 1..N — mutually exclusive with installments
- *   - surcharge        percentage
+ * Adds a "Debi" tab to the WooCommerce product edit page with:
+ *   - default_session_type (payment | installment | subscription | mandate)
+ *   - checkout_mode        (inherit | embedded | redirect)
+ *   - amount_mode          (fixed | editable)
+ *   - monthly_interest     percentage
+ *   - installments         fixed count — mutually exclusive with max_installments
+ *   - max_installments     customer chooses 1..N — mutually exclusive with installments
+ *   - surcharge            percentage
  *
  * Empty fields inherit their value from the plugin's global defaults.
  *
@@ -18,15 +20,17 @@ if ( ! defined( 'WPINC' ) ) {
 	die;
 }
 
-require_once __DIR__ . '/debipro-financing-type.php';
+require_once __DIR__ . '/debipro-session-type.php';
 
 class DEBIPRO_Product_Meta {
 
-	const TYPE_KEY      = '_debipro_type';
-	const INTEREST_KEY  = '_debipro_monthly_interest_percentage';
-	const INSTALL_KEY   = '_debipro_installments';
-	const MAX_INST_KEY  = '_debipro_max_installments';
-	const SURCHARGE_KEY = '_debipro_surcharge_percentage';
+	const SESSION_TYPE_KEY  = '_debipro_default_session_type';
+	const CHECKOUT_MODE_KEY = '_debipro_checkout_mode';
+	const AMOUNT_MODE_KEY   = '_debipro_amount_mode';
+	const INTEREST_KEY      = '_debipro_monthly_interest_percentage';
+	const INSTALL_KEY       = '_debipro_installments';
+	const MAX_INST_KEY      = '_debipro_max_installments';
+	const SURCHARGE_KEY     = '_debipro_surcharge_percentage';
 
 	public static function init() {
 		add_filter( 'woocommerce_product_data_tabs', array( __CLASS__, 'add_product_tab' ) );
@@ -44,20 +48,60 @@ class DEBIPRO_Product_Meta {
 		return $tabs;
 	}
 
-	private static function normalize_type( string $type ): string {
-		$resolved = DebiProFinancingType::tryFrom( $type );
+	/**
+	 * The selectable default session types, as id => label.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function session_type_options(): array {
+		return array(
+			'payment'      => __( 'Payment', 'debi-payment-for-woocommerce' ),
+			'installment'  => __( 'Installment', 'debi-payment-for-woocommerce' ),
+			'subscription' => __( 'Subscription', 'debi-payment-for-woocommerce' ),
+			'mandate'      => __( 'Mandate', 'debi-payment-for-woocommerce' ),
+		);
+	}
 
-		return null !== $resolved ? $resolved->value : DebiProFinancingType::Installment->value;
+	private static function normalize_session_type( string $type ): string {
+		$resolved = DebiProSessionType::tryFrom( $type );
+
+		return null !== $resolved ? $resolved->value : DebiProSessionType::Installment->value;
+	}
+
+	private static function normalize_checkout_mode( string $mode ): string {
+		return in_array( $mode, array( 'embedded', 'redirect' ), true ) ? $mode : 'embedded';
+	}
+
+	private static function normalize_amount_mode( string $mode ): string {
+		return in_array( $mode, array( 'fixed', 'editable' ), true ) ? $mode : 'fixed';
+	}
+
+	/**
+	 * Read a plugin-level default, from the gateway when available or the raw
+	 * WC options row otherwise.
+	 *
+	 * @param string                  $key
+	 * @param mixed                   $fallback
+	 * @param WC_Payment_Gateway|null $gateway
+	 * @return mixed
+	 */
+	private static function read_setting( string $key, $fallback, $gateway = null ) {
+		if ( $gateway ) {
+			return $gateway->get_option( $key, $fallback );
+		}
+		$s = get_option( 'woocommerce_debipro_settings', array() );
+		return isset( $s[ $key ] ) ? $s[ $key ] : $fallback;
 	}
 
 	private static function get_defaults() {
 		$s = get_option( 'woocommerce_debipro_settings', array() );
 		return array(
-			'type'      => self::normalize_type( isset( $s['default_type'] ) ? (string) $s['default_type'] : 'installment' ),
-			'interest'  => isset( $s['default_monthly_interest_percentage'] ) ? $s['default_monthly_interest_percentage'] : '2',
-			'install'   => isset( $s['default_installments'] ) ? $s['default_installments'] : '',
-			'max'       => isset( $s['default_max_installments'] ) ? $s['default_max_installments'] : '',
-			'surcharge' => isset( $s['default_surcharge_percentage'] ) ? $s['default_surcharge_percentage'] : '0',
+			'type'          => self::normalize_session_type( isset( $s['default_session_type'] ) ? (string) $s['default_session_type'] : 'installment' ),
+			'checkout_mode' => self::normalize_checkout_mode( isset( $s['default_checkout_mode'] ) ? (string) $s['default_checkout_mode'] : 'embedded' ),
+			'interest'      => isset( $s['default_monthly_interest_percentage'] ) ? $s['default_monthly_interest_percentage'] : '2',
+			'install'       => isset( $s['default_installments'] ) ? $s['default_installments'] : '',
+			'max'           => isset( $s['default_max_installments'] ) ? $s['default_max_installments'] : '',
+			'surcharge'     => isset( $s['default_surcharge_percentage'] ) ? $s['default_surcharge_percentage'] : '0',
 		);
 	}
 
@@ -93,7 +137,7 @@ class DEBIPRO_Product_Meta {
 			'debipro-admin-product-meta',
 			'debiproProductMeta',
 			array(
-				'typeKey'            => '#' . self::TYPE_KEY,
+				'typeKey'            => '#' . self::SESSION_TYPE_KEY,
 				'interestId'         => '#' . self::INTEREST_KEY,
 				'installId'          => '#' . self::INSTALL_KEY,
 				'maxInstId'          => '#' . self::MAX_INST_KEY,
@@ -108,25 +152,57 @@ class DEBIPRO_Product_Meta {
 		$pid = (int) $post->ID;
 		$d   = self::get_defaults();
 
-		$type     = get_post_meta( $pid, self::TYPE_KEY, true );
-		$interest = get_post_meta( $pid, self::INTEREST_KEY, true );
-		$install  = get_post_meta( $pid, self::INSTALL_KEY, true );
-		$max      = get_post_meta( $pid, self::MAX_INST_KEY, true );
-		$surch    = get_post_meta( $pid, self::SURCHARGE_KEY, true );
+		$type          = get_post_meta( $pid, self::SESSION_TYPE_KEY, true );
+		$checkout_mode = get_post_meta( $pid, self::CHECKOUT_MODE_KEY, true );
+		$amount_mode   = get_post_meta( $pid, self::AMOUNT_MODE_KEY, true );
+		$interest      = get_post_meta( $pid, self::INTEREST_KEY, true );
+		$install       = get_post_meta( $pid, self::INSTALL_KEY, true );
+		$max           = get_post_meta( $pid, self::MAX_INST_KEY, true );
+		$surch         = get_post_meta( $pid, self::SURCHARGE_KEY, true );
 		?>
 		<div id="debipro_product_data" class="panel woocommerce_options_panel">
 			<div class="options_group">
 				<?php
 				woocommerce_wp_select(
 					array(
-						'id'          => self::TYPE_KEY,
-						'label'       => __( 'Type', 'debi-payment-for-woocommerce' ),
+						'id'          => self::SESSION_TYPE_KEY,
+						'label'       => __( 'Default checkout type', 'debi-payment-for-woocommerce' ),
 						'value'       => $type ? $type : $d['type'],
 						'desc_tip'    => true,
-						'description' => __( 'Installment: fixed or customer-chosen number of payments. Single payment: one charge only.', 'debi-payment-for-woocommerce' ),
+						'description' => __( 'The Debi session this product opens by default. Payment: a single charge (optionally split into installments). Subscription: a recurring charge. Mandate: capture a payment method for later charges.', 'debi-payment-for-woocommerce' ),
+						'options'     => self::session_type_options(),
+					)
+				);
+
+				woocommerce_wp_select(
+					array(
+						'id'          => self::CHECKOUT_MODE_KEY,
+						'label'       => __( 'Checkout mode', 'debi-payment-for-woocommerce' ),
+						'value'       => $checkout_mode,
+						'desc_tip'    => true,
+						'description' => __( 'Embedded: the card is captured on this site. Redirect: the customer is sent to Debi\'s hosted checkout. Empty = use the plugin default.', 'debi-payment-for-woocommerce' ),
 						'options'     => array(
-							'installment' => __( 'Installment', 'debi-payment-for-woocommerce' ),
-							'one_time'    => __( 'Single payment', 'debi-payment-for-woocommerce' ),
+							''         => sprintf(
+								/* translators: %s: the plugin-level default checkout mode. */
+								__( 'Use default (%s)', 'debi-payment-for-woocommerce' ),
+								ucfirst( $d['checkout_mode'] )
+							),
+							'embedded' => __( 'Embedded', 'debi-payment-for-woocommerce' ),
+							'redirect' => __( 'Redirect', 'debi-payment-for-woocommerce' ),
+						),
+					)
+				);
+
+				woocommerce_wp_select(
+					array(
+						'id'          => self::AMOUNT_MODE_KEY,
+						'label'       => __( 'Amount', 'debi-payment-for-woocommerce' ),
+						'value'       => $amount_mode ? $amount_mode : 'fixed',
+						'desc_tip'    => true,
+						'description' => __( 'Fixed: the product price is charged. Customer-defined: the buyer sets the amount (useful for donations and free-amount subscriptions).', 'debi-payment-for-woocommerce' ),
+						'options'     => array(
+							'fixed'    => __( 'Fixed amount', 'debi-payment-for-woocommerce' ),
+							'editable' => __( 'Customer-defined amount', 'debi-payment-for-woocommerce' ),
 						),
 					)
 				);
@@ -204,12 +280,28 @@ class DEBIPRO_Product_Meta {
 		// WooCommerce verifies woocommerce_meta_nonce before this hook runs.
 		// phpcs:disable WordPress.Security.NonceVerification.Missing
 
-		// Type
-		$type = isset( $_POST[ self::TYPE_KEY ] ) ? sanitize_text_field( wp_unslash( $_POST[ self::TYPE_KEY ] ) ) : '';
-		if ( DebiProFinancingType::tryFrom( $type ) !== null ) {
-			update_post_meta( $post_id, self::TYPE_KEY, $type );
+		// Default session type
+		$type = isset( $_POST[ self::SESSION_TYPE_KEY ] ) ? sanitize_text_field( wp_unslash( $_POST[ self::SESSION_TYPE_KEY ] ) ) : '';
+		if ( DebiProSessionType::tryFrom( $type ) !== null ) {
+			update_post_meta( $post_id, self::SESSION_TYPE_KEY, $type );
 		} else {
-			delete_post_meta( $post_id, self::TYPE_KEY );
+			delete_post_meta( $post_id, self::SESSION_TYPE_KEY );
+		}
+
+		// Checkout mode: empty value means "inherit the plugin default".
+		$checkout_mode = isset( $_POST[ self::CHECKOUT_MODE_KEY ] ) ? sanitize_text_field( wp_unslash( $_POST[ self::CHECKOUT_MODE_KEY ] ) ) : '';
+		if ( in_array( $checkout_mode, array( 'embedded', 'redirect' ), true ) ) {
+			update_post_meta( $post_id, self::CHECKOUT_MODE_KEY, $checkout_mode );
+		} else {
+			delete_post_meta( $post_id, self::CHECKOUT_MODE_KEY );
+		}
+
+		// Amount mode
+		$amount_mode = isset( $_POST[ self::AMOUNT_MODE_KEY ] ) ? sanitize_text_field( wp_unslash( $_POST[ self::AMOUNT_MODE_KEY ] ) ) : '';
+		if ( in_array( $amount_mode, array( 'fixed', 'editable' ), true ) ) {
+			update_post_meta( $post_id, self::AMOUNT_MODE_KEY, $amount_mode );
+		} else {
+			delete_post_meta( $post_id, self::AMOUNT_MODE_KEY );
 		}
 
 		// installments / max_installments are mutually exclusive; whichever is
@@ -248,6 +340,32 @@ class DEBIPRO_Product_Meta {
 	}
 
 	/**
+	 * Resolve the product's checkout mode, inheriting the plugin default when
+	 * the product does not declare one.
+	 *
+	 * @param int                     $product_id
+	 * @param WC_Payment_Gateway|null $gateway
+	 * @return string 'embedded'|'redirect'
+	 */
+	public static function get_checkout_mode( $product_id, $gateway = null ): string {
+		$mode = (string) get_post_meta( $product_id, self::CHECKOUT_MODE_KEY, true );
+		if ( in_array( $mode, array( 'embedded', 'redirect' ), true ) ) {
+			return $mode;
+		}
+		return self::normalize_checkout_mode( (string) self::read_setting( 'default_checkout_mode', 'embedded', $gateway ) );
+	}
+
+	/**
+	 * Resolve the product's amount mode.
+	 *
+	 * @param int $product_id
+	 * @return string 'fixed'|'editable'
+	 */
+	public static function get_amount_mode( $product_id ): string {
+		return self::normalize_amount_mode( (string) get_post_meta( $product_id, self::AMOUNT_MODE_KEY, true ) );
+	}
+
+	/**
 	 * Returns the resolved financing configuration for a product, applying global
 	 * defaults for any field the product leaves empty.
 	 *
@@ -255,10 +373,10 @@ class DEBIPRO_Product_Meta {
 	 * @param WC_Payment_Gateway|null     $gateway    Pass the gateway instance for
 	 *                                                get_option() fallback; null reads
 	 *                                                directly from the WC options row.
-	 * @return array{type:DebiProFinancingType,monthly_interest:float,installments:int|null,max_installments:int|null,surcharge:float}
+	 * @return array{type:DebiProSessionType,monthly_interest:float,installments:int|null,max_installments:int|null,surcharge:float}
 	 */
 	public static function get_product_financing( $product_id, $gateway = null ) {
-		$type             = get_post_meta( $product_id, self::TYPE_KEY, true );
+		$type             = get_post_meta( $product_id, self::SESSION_TYPE_KEY, true );
 		$interest         = get_post_meta( $product_id, self::INTEREST_KEY, true );
 		$install          = get_post_meta( $product_id, self::INSTALL_KEY, true );
 		$max              = get_post_meta( $product_id, self::MAX_INST_KEY, true );
@@ -267,15 +385,11 @@ class DEBIPRO_Product_Meta {
 		$has_max_meta     = metadata_exists( 'post', $product_id, self::MAX_INST_KEY );
 
 		$opt = function ( $key, $fallback ) use ( $gateway ) {
-			if ( $gateway ) {
-				return $gateway->get_option( $key, $fallback );
-			}
-			$s = get_option( 'woocommerce_debipro_settings', array() );
-			return isset( $s[ $key ] ) ? $s[ $key ] : $fallback;
+			return self::read_setting( $key, $fallback, $gateway );
 		};
 
-		if ( DebiProFinancingType::tryFrom( (string) $type ) === null ) {
-			$type = self::normalize_type( (string) $opt( 'default_type', DebiProFinancingType::Installment->value ) );
+		if ( DebiProSessionType::tryFrom( (string) $type ) === null ) {
+			$type = self::normalize_session_type( (string) $opt( 'default_session_type', DebiProSessionType::Installment->value ) );
 		}
 		if ( ! is_numeric( $interest ) ) {
 			$interest = $opt( 'default_monthly_interest_percentage', 2 );
@@ -303,7 +417,7 @@ class DEBIPRO_Product_Meta {
 		}
 
 		return array(
-			'type'             => DebiProFinancingType::from( self::normalize_type( (string) $type ) ),
+			'type'             => DebiProSessionType::from( self::normalize_session_type( (string) $type ) ),
 			'monthly_interest' => (float) $interest,
 			'installments'     => $install_count,
 			'max_installments' => $max_count,

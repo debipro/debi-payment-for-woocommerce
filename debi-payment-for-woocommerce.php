@@ -139,6 +139,7 @@ function debipro_init_payment_gateway() {
 
 	\DebiPro\Admin\OrderActions::init();
 	\DebiPro\Cli\ReconcileOrdersCommand::register();
+	\DebiPro\Cli\MigrateSessionTypesCommand::register();
 }
 
 /**

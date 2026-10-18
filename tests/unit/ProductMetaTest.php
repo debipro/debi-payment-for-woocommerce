@@ -12,7 +12,7 @@ namespace Tucuota\DebiPaymentForWooCommerce\Tests\Unit;
 use Brain\Monkey;
 use Brain\Monkey\Functions;
 use DEBIPRO_Product_Meta;
-use DebiProFinancingType;
+use DebiProSessionType;
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../stubs/wp-meta-functions.php';
@@ -32,7 +32,8 @@ final class ProductMetaTest extends TestCase {
 
 	/** @var array<string, mixed> */
 	private array $gateway_settings = array(
-		'default_type'                        => 'installment',
+		'default_session_type'                => 'installment',
+		'default_checkout_mode'               => 'embedded',
 		'default_monthly_interest_percentage' => '2',
 		'default_installments'                => '2',
 		'default_max_installments'            => '',
@@ -108,7 +109,7 @@ final class ProductMetaTest extends TestCase {
 	public function test_get_product_financing_uses_global_fixed_default_when_product_has_no_meta(): void {
 		$financing = DEBIPRO_Product_Meta::get_product_financing( self::PRODUCT_ID );
 
-		$this->assertSame( DebiProFinancingType::Installment, $financing['type'] );
+		$this->assertSame( DebiProSessionType::Installment, $financing['type'] );
 		$this->assertSame( 2, $financing['installments'] );
 		$this->assertNull( $financing['max_installments'] );
 	}
@@ -144,7 +145,7 @@ final class ProductMetaTest extends TestCase {
 
 	public function test_save_product_meta_keeps_only_fixed_installments_when_both_submitted(): void {
 		$_POST = array(
-			DEBIPRO_Product_Meta::TYPE_KEY     => DebiProFinancingType::Installment->value,
+			DEBIPRO_Product_Meta::SESSION_TYPE_KEY     => DebiProSessionType::Installment->value,
 			DEBIPRO_Product_Meta::INSTALL_KEY  => '3',
 			DEBIPRO_Product_Meta::MAX_INST_KEY => '6',
 		);
@@ -159,7 +160,7 @@ final class ProductMetaTest extends TestCase {
 		$this->set_product_meta( DEBIPRO_Product_Meta::INSTALL_KEY, '2' );
 
 		$_POST = array(
-			DEBIPRO_Product_Meta::TYPE_KEY     => DebiProFinancingType::Installment->value,
+			DEBIPRO_Product_Meta::SESSION_TYPE_KEY     => DebiProSessionType::Installment->value,
 			DEBIPRO_Product_Meta::INSTALL_KEY  => '',
 			DEBIPRO_Product_Meta::MAX_INST_KEY => '8',
 		);
@@ -175,7 +176,7 @@ final class ProductMetaTest extends TestCase {
 		$this->set_product_meta( DEBIPRO_Product_Meta::MAX_INST_KEY, '6' );
 
 		$_POST = array(
-			DEBIPRO_Product_Meta::TYPE_KEY     => DebiProFinancingType::Installment->value,
+			DEBIPRO_Product_Meta::SESSION_TYPE_KEY     => DebiProSessionType::Installment->value,
 			DEBIPRO_Product_Meta::INSTALL_KEY  => '',
 			DEBIPRO_Product_Meta::MAX_INST_KEY => '',
 		);
@@ -188,7 +189,7 @@ final class ProductMetaTest extends TestCase {
 
 	public function test_saved_max_installments_prevents_global_fixed_default_on_read(): void {
 		$_POST = array(
-			DEBIPRO_Product_Meta::TYPE_KEY     => DebiProFinancingType::Installment->value,
+			DEBIPRO_Product_Meta::SESSION_TYPE_KEY     => DebiProSessionType::Installment->value,
 			DEBIPRO_Product_Meta::INSTALL_KEY  => '',
 			DEBIPRO_Product_Meta::MAX_INST_KEY => '5',
 		);
@@ -198,5 +199,61 @@ final class ProductMetaTest extends TestCase {
 
 		$this->assertNull( $financing['installments'] );
 		$this->assertSame( 5, $financing['max_installments'] );
+	}
+
+	public function test_get_product_financing_resolves_payment_session_type(): void {
+		$this->set_product_meta( DEBIPRO_Product_Meta::SESSION_TYPE_KEY, 'payment' );
+
+		$financing = DEBIPRO_Product_Meta::get_product_financing( self::PRODUCT_ID );
+
+		$this->assertSame( DebiProSessionType::Payment, $financing['type'] );
+	}
+
+	public function test_get_checkout_mode_inherits_plugin_default(): void {
+		$this->assertSame( 'embedded', DEBIPRO_Product_Meta::get_checkout_mode( self::PRODUCT_ID ) );
+
+		$this->gateway_settings['default_checkout_mode'] = 'redirect';
+		$this->assertSame( 'redirect', DEBIPRO_Product_Meta::get_checkout_mode( self::PRODUCT_ID ) );
+	}
+
+	public function test_get_checkout_mode_product_override_wins_over_default(): void {
+		$this->gateway_settings['default_checkout_mode'] = 'embedded';
+		$this->set_product_meta( DEBIPRO_Product_Meta::CHECKOUT_MODE_KEY, 'redirect' );
+
+		$this->assertSame( 'redirect', DEBIPRO_Product_Meta::get_checkout_mode( self::PRODUCT_ID ) );
+	}
+
+	public function test_get_amount_mode_defaults_to_fixed_and_respects_editable(): void {
+		$this->assertSame( 'fixed', DEBIPRO_Product_Meta::get_amount_mode( self::PRODUCT_ID ) );
+
+		$this->set_product_meta( DEBIPRO_Product_Meta::AMOUNT_MODE_KEY, 'editable' );
+		$this->assertSame( 'editable', DEBIPRO_Product_Meta::get_amount_mode( self::PRODUCT_ID ) );
+	}
+
+	public function test_save_product_meta_persists_session_type_and_modes(): void {
+		$_POST = array(
+			DEBIPRO_Product_Meta::SESSION_TYPE_KEY  => 'subscription',
+			DEBIPRO_Product_Meta::CHECKOUT_MODE_KEY => 'redirect',
+			DEBIPRO_Product_Meta::AMOUNT_MODE_KEY   => 'editable',
+		);
+
+		DEBIPRO_Product_Meta::save_product_meta( self::PRODUCT_ID );
+
+		$this->assertSame( 'subscription', $this->meta_values[ self::PRODUCT_ID ][ DEBIPRO_Product_Meta::SESSION_TYPE_KEY ] ?? null );
+		$this->assertSame( 'redirect', $this->meta_values[ self::PRODUCT_ID ][ DEBIPRO_Product_Meta::CHECKOUT_MODE_KEY ] ?? null );
+		$this->assertSame( 'editable', $this->meta_values[ self::PRODUCT_ID ][ DEBIPRO_Product_Meta::AMOUNT_MODE_KEY ] ?? null );
+	}
+
+	public function test_save_product_meta_clears_checkout_mode_when_inherit_selected(): void {
+		$this->set_product_meta( DEBIPRO_Product_Meta::CHECKOUT_MODE_KEY, 'redirect' );
+
+		$_POST = array(
+			DEBIPRO_Product_Meta::SESSION_TYPE_KEY  => 'payment',
+			DEBIPRO_Product_Meta::CHECKOUT_MODE_KEY => '',
+		);
+
+		DEBIPRO_Product_Meta::save_product_meta( self::PRODUCT_ID );
+
+		$this->assertFalse( $this->meta_exists[ self::PRODUCT_ID ][ DEBIPRO_Product_Meta::CHECKOUT_MODE_KEY ] ?? true );
 	}
 }
