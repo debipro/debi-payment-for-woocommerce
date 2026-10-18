@@ -12,6 +12,8 @@ declare( strict_types=1 );
 
 if ( ! class_exists( 'WC_Order' ) ) {
 	class WC_Order {
+		/** @var int */
+		public $id = 0;
 		/** @var string */
 		public $status = 'processing';
 		/** @var array<string,mixed> */
@@ -47,7 +49,7 @@ if ( ! class_exists( 'WC_Order' ) ) {
 		}
 
 		public function get_id() {
-			return $this->id ?? 0;
+			return $this->id;
 		}
 
 		public function save() {

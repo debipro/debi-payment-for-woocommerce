@@ -15,26 +15,35 @@ use DebiPro\Projection\OrderMeta;
 use DebiPro\Projection\PaymentAmounts;
 
 /**
- * Creates inbound WooCommerce orders for Debi-native payments (Phase 2).
+ * Creates inbound WooCommerce orders for Debi-native payments.
+ *
+ * Used when a Debi payment arrives with no originating WooCommerce order (e.g. a
+ * payment link, or an externally-created subscription). The order is built
+ * against the *real* product carried in the session metadata (`product_id`); a
+ * payment with no product to attribute to is ignored by the caller — there is no
+ * generic catch-all product any more.
  */
 final class InboundOrderFactory {
 
-	public const PRODUCT_SKU  = 'debipro-payment';
-	public const PRODUCT_NAME = 'Debi Payment';
-
 	/**
+	 * @param int $product_id The product the session metadata attributes this payment to.
 	 * @return \WC_Order|null
 	 */
-	public static function create_from_payment( Payment $payment, ?Subscription $subscription = null ) {
-		if ( ! function_exists( 'wc_create_order' ) ) {
+	public static function create_from_payment( Payment $payment, ?Subscription $subscription, int $product_id ) {
+		if ( ! function_exists( 'wc_create_order' ) || $product_id <= 0 ) {
+			return null;
+		}
+
+		$product = function_exists( 'wc_get_product' ) ? wc_get_product( $product_id ) : null;
+		if ( ! $product instanceof \WC_Product ) {
 			return null;
 		}
 
 		$amount      = PaymentAmounts::money( isset( $payment->amount ) ? (float) $payment->amount : 0.0 );
 		$payment_id  = isset( $payment->id ) ? (string) $payment->id : '';
-		$description = isset( $payment->description ) ? (string) $payment->description : self::PRODUCT_NAME;
+		$description = isset( $payment->description ) ? (string) $payment->description : '';
 		if ( '' === $description ) {
-			$description = self::PRODUCT_NAME;
+			$description = (string) $product->get_name();
 		}
 
 		$email = self::email_from_payment( $payment );
@@ -51,8 +60,7 @@ final class InboundOrderFactory {
 			return null;
 		}
 
-		$product = self::ensure_product();
-		if ( $product && method_exists( $order, 'add_product' ) ) {
+		if ( method_exists( $order, 'add_product' ) ) {
 			$order->add_product( $product, 1 );
 			foreach ( $order->get_items() as $item ) {
 				if ( is_object( $item ) && method_exists( $item, 'set_name' ) ) {
@@ -97,6 +105,7 @@ final class InboundOrderFactory {
 
 		$order->update_meta_data( OrderMeta::ORIGIN, $origin );
 		$order->update_meta_data( OrderMeta::PAYMENT_ID, $payment_id );
+		$order->update_meta_data( OrderMeta::PRODUCT_ID, $product_id );
 		$order->update_meta_data( OrderMeta::FINAL_PRICE, (string) $amount );
 		if ( '' !== $subscription_id ) {
 			$order->update_meta_data( OrderMeta::SUBSCRIPTION_ID, $subscription_id );
@@ -117,37 +126,6 @@ final class InboundOrderFactory {
 		$order->save();
 
 		return $order;
-	}
-
-	/**
-	 * @return \WC_Product|null
-	 */
-	public static function ensure_product() {
-		if ( ! function_exists( 'wc_get_product_id_by_sku' ) || ! function_exists( 'wc_get_product' ) ) {
-			return null;
-		}
-
-		$existing_id = (int) wc_get_product_id_by_sku( self::PRODUCT_SKU );
-		if ( $existing_id > 0 ) {
-			$product = wc_get_product( $existing_id );
-			return $product instanceof \WC_Product ? $product : null;
-		}
-
-		if ( ! class_exists( '\WC_Product_Simple' ) ) {
-			return null;
-		}
-
-		$product = new \WC_Product_Simple();
-		$product->set_name( self::PRODUCT_NAME );
-		$product->set_sku( self::PRODUCT_SKU );
-		$product->set_status( 'private' );
-		$product->set_catalog_visibility( 'hidden' );
-		$product->set_virtual( true );
-		$product->set_regular_price( '0' );
-		$product->set_price( '0' );
-		$product->save();
-
-		return $product;
 	}
 
 	private static function email_from_payment( Payment $payment ): string {

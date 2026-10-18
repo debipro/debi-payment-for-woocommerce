@@ -942,6 +942,80 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         );
     }
 
+    /**
+     * Redirect-mode checkout: create a Debi hosted session and send the buyer to it.
+     *
+     * The WooCommerce order already exists (pending); it is finalised when the
+     * payment webhook arrives, correlated by the session metadata (order_id).
+     *
+     * @param array{product_id:int,product_title:string,type:DebiProSessionType,monthly_interest:float,surcharge:float,installments:int|null,max_installments:int|null} $financing
+     * @return array{result:string,redirect:string}|false
+     */
+    private function process_redirect_payment(\WC_Order $order, array $financing)
+    {
+        $product_id    = (int) $financing['product_id'];
+        $amount_mode   = $product_id > 0 ? DEBIPRO_Product_Meta::get_amount_mode($product_id) : 'fixed';
+        $amount        = (float) $order->get_total() * (1 + $financing['surcharge'] / 100);
+        $is_installment = ($financing['type'] === DebiProSessionType::Installment);
+
+        // phpcs:disable WordPress.Security.NonceVerification.Missing -- WooCommerce verifies the checkout nonce before dispatching here.
+        $identification = isset($_POST['participant_id']) ? sanitize_text_field(wp_unslash($_POST['participant_id'])) : '';
+        // phpcs:enable WordPress.Security.NonceVerification.Missing
+
+        try {
+            $session = \DebiPro\Checkout\DebiSessionCreator::create(array(
+                'order'            => $order,
+                'amount'           => $amount,
+                'installments'     => $financing['installments'],
+                'max_installments' => $financing['max_installments'],
+                'editable_amount'  => ('editable' === $amount_mode),
+                'description'      => sprintf(
+                    'Order %d - Product %d - %s',
+                    (int) $order->get_id(),
+                    $product_id,
+                    (string) $financing['product_title']
+                ),
+                'success_url'      => $this->get_return_url($order),
+                'product_id'       => $product_id,
+                'wp_user_id'       => (int) $order->get_customer_id(),
+                'customer'         => array(
+                    'name'                  => $order->get_billing_last_name() . ', ' . $order->get_billing_first_name(),
+                    'email'                 => $order->get_billing_email(),
+                    'identification_number' => $identification,
+                ),
+            ));
+        } catch (\Debi\Exception\ExceptionInterface $e) {
+            $this->log_error('Debi session create failed for order ' . (int) $order->get_id() . ': ' . $e->getMessage());
+            wc_add_notice(__('We could not start the payment. Please try again in a moment.', 'debi-payment-for-woocommerce'), 'error');
+            return false;
+        } catch (\Throwable $e) {
+            $this->log_error('Debi session error for order ' . (int) $order->get_id() . ': ' . $e->getMessage());
+            wc_add_notice(__('We could not start the payment. Please try again in a moment.', 'debi-payment-for-woocommerce'), 'error');
+            return false;
+        }
+
+        // Installment sessions produce a subscription (a checkout plan); a plain
+        // payment session produces a single payment (projected like a one-off).
+        $origin = $is_installment
+            ? \DebiPro\Projection\OrderMeta::ORIGIN_INSTALLMENT_PLAN
+            : \DebiPro\Projection\OrderMeta::ORIGIN_DEBI_ONE_OFF_PAYMENT;
+
+        $order->update_meta_data(\DebiPro\Projection\OrderMeta::SESSION_ID, (string) $session->id);
+        if ($product_id > 0) {
+            $order->update_meta_data(\DebiPro\Projection\OrderMeta::PRODUCT_ID, $product_id);
+        }
+        $order->update_meta_data(\DebiPro\Projection\OrderMeta::FINAL_PRICE, (string) $amount);
+        $order->update_meta_data(\DebiPro\Projection\OrderMeta::ORIGIN, $origin);
+        $order->update_meta_data(\DebiPro\Projection\OrderMeta::PAYMENT_STATUS, \DebiPro\Projection\OrderMeta::STATUS_CURRENT);
+        $order->update_status('pending', __('Redirecting the customer to the Debi hosted checkout.', 'debi-payment-for-woocommerce'));
+        $order->save();
+
+        return array(
+            'result'   => 'success',
+            'redirect' => (string) $session->public_uri,
+        );
+    }
+
     public function process_payment($order_id)
     {
         $order = wc_get_order($order_id);
@@ -949,6 +1023,24 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         if (!$order) {
             wc_add_notice(__('Order not found.', 'debi-payment-for-woocommerce'), 'error');
             return false;
+        }
+
+        $financing = $this->get_cart_financing();
+
+        // Subscription and mandate products open their own Debi session; the
+        // embedded installment-plan checkout here cannot create them yet. Guard
+        // against accidentally charging a monthly plan for such products.
+        if (in_array($financing['type'], array(DebiProSessionType::Subscription, DebiProSessionType::Mandate), true)) {
+            wc_add_notice(__('This product is not available through this checkout yet.', 'debi-payment-for-woocommerce'), 'error');
+            return false;
+        }
+
+        // Redirect mode: hand the buyer Debi's hosted checkout instead of
+        // capturing the card on-site. The order already exists (WooCommerce
+        // creates it before process_payment); the webhook finalises it later,
+        // correlated by the session metadata (order_id / product_id).
+        if ('redirect' === DEBIPRO_Product_Meta::get_checkout_mode((int) $financing['product_id'], $this)) {
+            return $this->process_redirect_payment($order, $financing);
         }
 
         // WooCommerce verifies the checkout nonce (woocommerce-process_checkout) before
@@ -960,16 +1052,6 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             : '';
         if ('' === $token) {
             throw new \Exception(esc_html__('Please enter your card details before paying.', 'debi-payment-for-woocommerce'));
-        }
-
-        $financing                  = $this->get_cart_financing();
-
-        // Subscription and mandate products open their own Debi session; the
-        // embedded installment-plan checkout here cannot create them yet. Guard
-        // against accidentally charging a monthly plan for such products.
-        if (in_array($financing['type'], array(DebiProSessionType::Subscription, DebiProSessionType::Mandate), true)) {
-            wc_add_notice(__('This product is not available through this checkout yet.', 'debi-payment-for-woocommerce'), 'error');
-            return false;
         }
 
         $max_inst                   = $financing['max_installments'];

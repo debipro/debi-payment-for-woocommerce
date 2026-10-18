@@ -15,6 +15,8 @@ final class OrderMeta {
 
 	public const SUBSCRIPTION_ID     = '_debipro_subscription_id';
 	public const PAYMENT_ID          = '_debipro_payment_id';
+	public const SESSION_ID          = '_debipro_session_id';
+	public const PRODUCT_ID          = '_debipro_product_id';
 	public const CUSTOMER_ID         = '_debipro_customer_id';
 	public const FINAL_PRICE         = '_debipro_final_price';
 	public const ORIGIN              = '_debipro_origin';

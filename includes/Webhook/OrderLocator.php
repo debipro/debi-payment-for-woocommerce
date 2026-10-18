@@ -47,6 +47,20 @@ final class OrderLocator {
 	}
 
 	/**
+	 * Redirect-checkout order for a Debi session id (set before redirecting).
+	 *
+	 * @return \WC_Order|null
+	 */
+	public static function find_by_session_id( string $session_id ) {
+		if ( '' === $session_id ) {
+			return null;
+		}
+
+		$orders = self::orders_by_meta( OrderMeta::SESSION_ID, $session_id );
+		return $orders[0] ?? null;
+	}
+
+	/**
 	 * Open checkout / inbound orders that carry a Debi subscription id (for reconcile).
 	 *
 	 * @return list<\WC_Order>
