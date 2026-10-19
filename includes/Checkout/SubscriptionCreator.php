@@ -53,6 +53,7 @@ final class SubscriptionCreator {
 	 *     installments: int,
 	 *     installment_amount: float,
 	 *     description: string,
+	 *     metadata?: array<string, string>,
 	 *     customer: array{name: string, email: string, identification_number?: string}
 	 * } $args
 	 * @return string Subscription id.
@@ -66,6 +67,7 @@ final class SubscriptionCreator {
 		$amount       = (float) ( $args['installment_amount'] ?? 0 );
 		$description  = (string) ( $args['description'] ?? '' );
 		$customer     = (array) ( $args['customer'] ?? array() );
+		$metadata     = (array) ( $args['metadata'] ?? array() );
 
 		if ( '' === $token ) {
 			throw new \RuntimeException( 'Missing payment method token.' );
@@ -100,6 +102,13 @@ final class SubscriptionCreator {
 
 		if ( $installments > 0 ) {
 			$params['count'] = $installments;
+		}
+
+		// Open-ended recurring subscriptions carry metadata (blog_id, product_id,
+		// wp_user_id) so Debi propagates it onto each charge, letting the webhook
+		// create one order per charge against the real product.
+		if ( array() !== $metadata ) {
+			$params['metadata'] = $metadata;
 		}
 
 		$subscription = $client->subscriptions->create(

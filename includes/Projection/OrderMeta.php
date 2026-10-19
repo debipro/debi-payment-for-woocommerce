@@ -34,6 +34,7 @@ final class OrderMeta {
 	public const PROCESSED_EVENTS    = '_debipro_processed_events';
 
 	public const ORIGIN_INSTALLMENT_PLAN          = 'installment_plan';
+	public const ORIGIN_SUBSCRIPTION              = 'debi_subscription';
 	public const ORIGIN_DEBI_SUBSCRIPTION_PAYMENT = 'debi_subscription_payment';
 	public const ORIGIN_DEBI_ONE_OFF_PAYMENT      = 'debi_one_off_payment';
 

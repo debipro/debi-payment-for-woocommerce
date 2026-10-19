@@ -12,6 +12,7 @@ use Debi\DebiClient;
 use DebiPro\Infrastructure\DebiClientFactory;
 use DebiPro\Projection\OrderMeta;
 use DebiPro\Projection\OrderProjector;
+use DebiPro\Subscription\SubscriptionsTable;
 
 /**
  * Routes Debi payment webhooks onto WooCommerce orders and recomputes projection.
@@ -60,6 +61,12 @@ final class OrderSync {
 		string $payment_id = '',
 		string $subscription_id = ''
 	): string {
+		// Subscription lifecycle events only refresh the local mirror table; they
+		// never create or move orders (charges do that, via payment events).
+		if ( 0 === strpos( $type, 'subscription.' ) ) {
+			return self::handle_subscription_event( $subscription_id );
+		}
+
 		if ( ! in_array( $type, self::PAYMENT_EVENTS, true ) ) {
 			return 'ignored';
 		}
@@ -103,6 +110,26 @@ final class OrderSync {
 				$snapshot['subscription_status'],
 				self::payments_for_order( $checkout, $snapshot, $payment_id )
 			);
+		}
+
+		// Keep the local subscriptions mirror current on every charge.
+		self::sync_subscription_table( $snapshot['subscription'] );
+
+		// 1b. Recurring subscription: the first charge fills the signup order; once
+		// that order holds a payment id, later charges fall through to create their
+		// own per-charge order against the real product (step 4 below).
+		if ( '' !== $subscription_id ) {
+			$signup = OrderLocator::find_subscription_signup( $subscription_id );
+			if ( $signup ) {
+				self::persist_ids( $signup, '', $payment_id, '' );
+				return self::apply_to_order(
+					$signup,
+					$event_id,
+					$type,
+					$snapshot['subscription_status'],
+					self::payments_for_order( $signup, $snapshot, $payment_id )
+				);
+			}
 		}
 
 		// 2. Redirect checkout: correlate to the pending WooCommerce order via the
@@ -364,6 +391,56 @@ final class OrderSync {
 			}
 		}
 		return array();
+	}
+
+	/**
+	 * Refresh the local subscriptions mirror from a subscription.* event.
+	 *
+	 * @return string Result code.
+	 */
+	private static function handle_subscription_event( string $subscription_id ): string {
+		if ( '' === $subscription_id ) {
+			return 'missing_subscription_id';
+		}
+
+		try {
+			$client = self::client();
+		} catch ( \Throwable $e ) {
+			return 'client_error';
+		}
+
+		try {
+			$subscription = $client->subscriptions->retrieve( $subscription_id );
+		} catch ( \Throwable $e ) {
+			self::log( 'Subscription fetch failed: ' . $e->getMessage() );
+			return 'fetch_failed';
+		}
+
+		self::sync_subscription_table( $subscription );
+		return 'subscription_synced';
+	}
+
+	/**
+	 * Best-effort upsert of the local subscriptions mirror. Never fails the webhook.
+	 *
+	 * @param mixed $subscription Debi subscription resource or null.
+	 */
+	private static function sync_subscription_table( $subscription ): void {
+		if ( ! $subscription instanceof \Debi\Resource\Subscription ) {
+			return;
+		}
+		// Only mirror open-ended recurring subscriptions (memberships). Finite
+		// installment plans carry a `count` and are tracked as checkout-plan orders,
+		// not as subscriptions in this table.
+		$count = $subscription->count ?? null;
+		if ( null !== $count && (int) $count > 0 ) {
+			return;
+		}
+		try {
+			SubscriptionsTable::upsert( SubscriptionsTable::row_from_resource( $subscription ) );
+		} catch ( \Throwable $e ) {
+			self::log( 'Subscriptions table upsert failed: ' . $e->getMessage() );
+		}
 	}
 
 	private static function client(): DebiClient {

@@ -1016,6 +1016,130 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         );
     }
 
+    /**
+     * Embedded recurring-subscription checkout.
+     *
+     * Creates an open-ended Debi subscription (no installment count) and leaves
+     * the WooCommerce signup order on-hold. The first charge webhook fills this
+     * order (charge #1); later charges spawn one order each against the real
+     * product. The subscription is mirrored into the local table for fast
+     * membership queries.
+     *
+     * @param array{product_id:int,product_title:string,type:DebiProSessionType,monthly_interest:float,surcharge:float,installments:int|null,max_installments:int|null} $financing
+     * @return array{result:string,redirect:string}|false
+     */
+    private function process_subscription_payment(\WC_Order $order, array $financing, string $token)
+    {
+        $product_id  = (int) $financing['product_id'];
+        $amount_mode = $product_id > 0 ? DEBIPRO_Product_Meta::get_amount_mode($product_id) : 'fixed';
+        $base_amount = (float) $order->get_total() * (1 + $financing['surcharge'] / 100);
+        $amount      = $base_amount;
+
+        // phpcs:disable WordPress.Security.NonceVerification.Missing -- WooCommerce verifies the checkout nonce before dispatching here.
+        if ('editable' === $amount_mode) {
+            $entered = isset($_POST['debipro-subscription-amount'])
+                ? (float) wp_unslash($_POST['debipro-subscription-amount'])
+                : 0.0;
+            // The product price is the floor; the customer may choose to pay more.
+            if ($entered + 0.001 < $base_amount) {
+                wc_add_notice(
+                    sprintf(
+                        /* translators: %s is the minimum (product) amount. */
+                        __('The subscription amount must be at least %s.', 'debi-payment-for-woocommerce'),
+                        function_exists('wc_price') ? wp_strip_all_tags(wc_price($base_amount)) : (string) $base_amount
+                    ),
+                    'error'
+                );
+                return false;
+            }
+            $amount = $entered;
+        }
+        $identification = isset($_POST['participant_id']) ? sanitize_text_field(wp_unslash($_POST['participant_id'])) : '';
+        $last_four      = isset($_POST['debipro-card_last_four']) ? sanitize_text_field(wp_unslash($_POST['debipro-card_last_four'])) : '';
+        // phpcs:enable WordPress.Security.NonceVerification.Missing
+
+        $blog_id    = (int) (function_exists('get_current_blog_id') ? get_current_blog_id() : 1);
+        $wp_user_id = (int) $order->get_customer_id();
+
+        $metadata = array(
+            'blog_id'    => (string) $blog_id,
+            'product_id' => (string) $product_id,
+        );
+        if ($wp_user_id > 0) {
+            $metadata['wp_user_id'] = (string) $wp_user_id;
+        }
+
+        try {
+            $subscription_id = \DebiPro\Checkout\SubscriptionCreator::create(array(
+                'order'                => $order,
+                'payment_method_token' => $token,
+                'installments'         => 0, // open-ended recurring subscription
+                'installment_amount'   => $amount,
+                'description'          => sprintf(
+                    'Order %d - Product %d - %s',
+                    (int) $order->get_id(),
+                    $product_id,
+                    (string) $financing['product_title']
+                ),
+                'metadata'             => $metadata,
+                'customer'             => array(
+                    'name'                  => $order->get_billing_last_name() . ', ' . $order->get_billing_first_name(),
+                    'email'                 => $order->get_billing_email(),
+                    'identification_number' => $identification,
+                ),
+            ));
+        } catch (\Debi\Exception\RateLimitException $e) {
+            $this->log_error('Rate limit hit for subscription order ' . (int) $order->get_id() . ': ' . $e->getMessage());
+            wc_add_notice(__('The payment service is temporarily busy. Please wait a moment and try again.', 'debi-payment-for-woocommerce'), 'error');
+            return false;
+        } catch (\Debi\Exception\ExceptionInterface $e) {
+            $this->log_error('Subscription create declined for order ' . (int) $order->get_id() . ': ' . $e->getMessage());
+            wc_add_notice(__('The payment was declined or could not be processed. Please check your card and try again.', 'debi-payment-for-woocommerce'), 'error');
+            return false;
+        } catch (\Throwable $e) {
+            $this->log_error('Subscription create failed for order ' . (int) $order->get_id() . ': ' . $e->getMessage());
+            wc_add_notice(__('We could not process the payment. Please try again in a moment.', 'debi-payment-for-woocommerce'), 'error');
+            return false;
+        }
+
+        if ('' !== $last_four) {
+            $order->update_meta_data('_debipro_card_last_4_digits', $last_four);
+        }
+        $order->update_meta_data(\DebiPro\Projection\OrderMeta::SUBSCRIPTION_ID, $subscription_id);
+        $order->update_meta_data(\DebiPro\Projection\OrderMeta::ORIGIN, \DebiPro\Projection\OrderMeta::ORIGIN_SUBSCRIPTION);
+        if ($product_id > 0) {
+            $order->update_meta_data(\DebiPro\Projection\OrderMeta::PRODUCT_ID, $product_id);
+        }
+        $order->update_meta_data(\DebiPro\Projection\OrderMeta::FINAL_PRICE, (string) $amount);
+        $order->update_meta_data(\DebiPro\Projection\OrderMeta::PAYMENT_STATUS, \DebiPro\Projection\OrderMeta::STATUS_CURRENT);
+
+        // Local mirror for fast "active subscriptions" queries without a Debi round-trip.
+        \DebiPro\Subscription\SubscriptionsTable::upsert(array(
+            'subscription_id' => $subscription_id,
+            'blog_id'         => $blog_id,
+            'product_id'      => $product_id,
+            'wp_user_id'      => $wp_user_id,
+            'customer_id'     => (string) $order->get_meta(\DebiPro\Projection\OrderMeta::CUSTOMER_ID),
+            'amount'          => $amount,
+            'status'          => 'active',
+        ));
+
+        // Wait on-hold until the first charge arrives; the webhook fills this order
+        // as charge #1 (see OrderSync).
+        $order->update_status('on-hold', __('Debi subscription created; awaiting first charge.', 'debi-payment-for-woocommerce'));
+
+        if (function_exists('WC') && WC()->cart) {
+            WC()->cart->empty_cart();
+        }
+
+        $order->save();
+
+        return array(
+            'result'   => 'success',
+            'redirect' => $this->get_return_url($order),
+        );
+    }
+
     public function process_payment($order_id)
     {
         $order = wc_get_order($order_id);
@@ -1027,19 +1151,21 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
 
         $financing = $this->get_cart_financing();
 
-        // Subscription and mandate products open their own Debi session; the
-        // embedded installment-plan checkout here cannot create them yet. Guard
-        // against accidentally charging a monthly plan for such products.
-        if (in_array($financing['type'], array(DebiProSessionType::Subscription, DebiProSessionType::Mandate), true)) {
+        // Mandate products capture a payment method without charging; that flow
+        // is not available through this checkout yet.
+        if (DebiProSessionType::Mandate === $financing['type']) {
             wc_add_notice(__('This product is not available through this checkout yet.', 'debi-payment-for-woocommerce'), 'error');
             return false;
         }
 
-        // Redirect mode: hand the buyer Debi's hosted checkout instead of
-        // capturing the card on-site. The order already exists (WooCommerce
-        // creates it before process_payment); the webhook finalises it later,
-        // correlated by the session metadata (order_id / product_id).
-        if ('redirect' === DEBIPRO_Product_Meta::get_checkout_mode((int) $financing['product_id'], $this)) {
+        // Redirect mode (payment / installment only): hand the buyer Debi's hosted
+        // checkout instead of capturing the card on-site. The order already exists
+        // (WooCommerce creates it before process_payment); the webhook finalises it
+        // later, correlated by the session metadata (order_id / product_id).
+        // Subscriptions always run embedded for now (redirect subscription sessions
+        // are a later addition).
+        if (DebiProSessionType::Subscription !== $financing['type']
+            && 'redirect' === DEBIPRO_Product_Meta::get_checkout_mode((int) $financing['product_id'], $this)) {
             return $this->process_redirect_payment($order, $financing);
         }
 
@@ -1052,6 +1178,11 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             : '';
         if ('' === $token) {
             throw new \Exception(esc_html__('Please enter your card details before paying.', 'debi-payment-for-woocommerce'));
+        }
+
+        // Recurring subscription (embedded): create an open-ended Debi subscription.
+        if (DebiProSessionType::Subscription === $financing['type']) {
+            return $this->process_subscription_payment($order, $financing, $token);
         }
 
         $max_inst                   = $financing['max_installments'];
@@ -1211,6 +1342,22 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
 
             <fieldset class="debipro-payment-fields">
                 <?php echo wp_kses_post($this->get_description()); ?>
+
+                <?php
+                // Editable-amount subscriptions let the customer choose how much to
+                // pay each month, with the product price as the floor.
+                $amount_mode = $financing['product_id'] > 0
+                    ? DEBIPRO_Product_Meta::get_amount_mode((int) $financing['product_id'])
+                    : 'fixed';
+                if (DebiProSessionType::Subscription === $financing['type'] && 'editable' === $amount_mode) :
+                    ?>
+                    <p class="form-row form-row-wide debipro-subscription-amount-row">
+                        <label for="debipro-subscription-amount"><?php esc_html_e('Monthly amount', 'debi-payment-for-woocommerce'); ?></label>
+                        <input type="number" step="0.01" min="<?php echo esc_attr($cart_total); ?>"
+                               id="debipro-subscription-amount" name="debipro-subscription-amount"
+                               value="<?php echo esc_attr($cart_total); ?>" class="input-text" />
+                    </p>
+                <?php endif; ?>
 
                 <?php // checkout-classic.js renders the installment plan UI here, reading fresh data from data attributes. ?>
                 <div id="debipro-installment-ui"

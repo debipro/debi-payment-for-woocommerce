@@ -37,6 +37,7 @@
         <exclude-pattern>includes/Infrastructure/*</exclude-pattern>
         <exclude-pattern>includes/Webhook/*</exclude-pattern>
         <exclude-pattern>includes/Projection/*</exclude-pattern>
+        <exclude-pattern>includes/Subscription/*</exclude-pattern>
         <exclude-pattern>includes/Admin/*</exclude-pattern>
         <exclude-pattern>includes/Cli/*</exclude-pattern>
     </rule>
@@ -56,6 +57,7 @@
         <exclude-pattern>includes/Infrastructure/*</exclude-pattern>
         <exclude-pattern>includes/Webhook/*</exclude-pattern>
         <exclude-pattern>includes/Projection/*</exclude-pattern>
+        <exclude-pattern>includes/Subscription/*</exclude-pattern>
         <exclude-pattern>includes/Admin/*</exclude-pattern>
         <exclude-pattern>includes/Cli/*</exclude-pattern>
     </rule>

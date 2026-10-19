@@ -47,6 +47,30 @@ final class OrderLocator {
 	}
 
 	/**
+	 * Recurring-subscription signup order still awaiting its first charge.
+	 *
+	 * The signup order carries the subscription id and the recurring origin but no
+	 * payment id yet; the first charge fills it. Once it has a payment id, later
+	 * charges spawn their own per-charge orders instead.
+	 *
+	 * @return \WC_Order|null
+	 */
+	public static function find_subscription_signup( string $subscription_id ) {
+		if ( '' === $subscription_id ) {
+			return null;
+		}
+
+		foreach ( self::orders_by_meta( OrderMeta::SUBSCRIPTION_ID, $subscription_id ) as $order ) {
+			if ( OrderMeta::ORIGIN_SUBSCRIPTION === (string) $order->get_meta( OrderMeta::ORIGIN )
+				&& '' === (string) $order->get_meta( OrderMeta::PAYMENT_ID ) ) {
+				return $order;
+			}
+		}
+
+		return null;
+	}
+
+	/**
 	 * Redirect-checkout order for a Debi session id (set before redirecting).
 	 *
 	 * @return \WC_Order|null

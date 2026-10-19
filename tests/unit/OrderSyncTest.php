@@ -30,9 +30,16 @@ final class OrderSyncTest extends TestCase {
 		parent::tearDown();
 	}
 
-	public function test_subscription_events_are_ignored(): void {
+	public function test_subscription_event_without_id_is_reported(): void {
+		$result = OrderSync::handle( 'EV1', 'subscription.finished', '', '' );
+		$this->assertSame( 'missing_subscription_id', $result );
+	}
+
+	public function test_subscription_event_syncs_via_client(): void {
+		// With an id but no configured client, it reaches for the client and fails
+		// there (rather than being ignored like before) — it now mirrors the table.
 		$result = OrderSync::handle( 'EV1', 'subscription.finished', '', 'SUB1' );
-		$this->assertSame( 'ignored', $result );
+		$this->assertSame( 'client_error', $result );
 	}
 
 	public function test_unknown_event_type_is_ignored(): void {
