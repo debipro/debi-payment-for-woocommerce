@@ -150,6 +150,46 @@ final class SubscriptionsTable {
 	}
 
 	/**
+	 * Mirror rows to reconcile against live Debi: just the id + blog, oldest
+	 * `updated_at` first (stalest rows benefit most under a `--limit`). The blog
+	 * id lets the CLI switch to the right site — each site has its own Debi key —
+	 * before retrieving the subscription.
+	 *
+	 * @param int $limit Max rows to return.
+	 * @return array<int,array{subscription_id:string,blog_id:int}>
+	 */
+	public static function reconcile_rows( int $limit = 500 ): array {
+		global $wpdb;
+
+		$table = self::table_name();
+		$limit = max( 1, $limit );
+
+		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"SELECT subscription_id, blog_id FROM {$table} ORDER BY updated_at ASC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$limit
+			),
+			ARRAY_A
+		);
+
+		$out = array();
+		if ( is_array( $rows ) ) {
+			foreach ( $rows as $r ) {
+				$id = (string) ( $r['subscription_id'] ?? '' );
+				if ( '' === $id ) {
+					continue;
+				}
+				$out[] = array(
+					'subscription_id' => $id,
+					'blog_id'         => (int) ( $r['blog_id'] ?? 0 ),
+				);
+			}
+		}
+
+		return $out;
+	}
+
+	/**
 	 * Build an upsert row from a Debi subscription resource, reading the ids we
 	 * stored in its metadata at checkout.
 	 *
