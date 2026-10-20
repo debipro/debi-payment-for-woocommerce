@@ -188,6 +188,9 @@
    * this runs again each time to (re)mount into the fresh node.
    */
   function mountIfNeeded() {
+    if (isRedirectMode()) {
+      return;
+    }
     var node = document.getElementById("debipro-card-element");
     if (!node) {
       return;
@@ -250,6 +253,17 @@
   function isDebiSelected() {
     var $checked = $('input[name="payment_method"]:checked');
     return $checked.length ? $checked.val() === "debipro" : false;
+  }
+
+  /**
+   * Redirect-mode products take the card on Debi's hosted page, so there is no
+   * on-site card element and no client-side tokenization: the checkout submits
+   * normally and process_payment() returns the hosted session URL, which
+   * WooCommerce follows.
+   */
+  function isRedirectMode() {
+    var node = document.getElementById("debipro-checkout-mode");
+    return !!node && node.value === "redirect";
   }
 
   /**
@@ -363,6 +377,11 @@
     });
 
     $("form.checkout").on("checkout_place_order_debipro", function () {
+      // Redirect mode: let WooCommerce submit normally; the server returns the
+      // Debi hosted-checkout URL and WooCommerce redirects the browser to it.
+      if (isRedirectMode()) {
+        return true;
+      }
       if (token) {
         return true;
       }

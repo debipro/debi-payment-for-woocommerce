@@ -1447,35 +1447,56 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                 <?php echo wp_kses_post($this->get_description()); ?>
 
                 <?php
-                // Editable-amount subscriptions let the customer choose how much to
-                // pay each month, with the product price as the floor.
-                $amount_mode = $financing['product_id'] > 0
-                    ? DEBIPRO_Product_Meta::get_amount_mode((int) $financing['product_id'])
-                    : 'fixed';
-                if (DebiProSessionType::Subscription === $financing['type'] && 'editable' === $amount_mode) :
+                $product_id    = (int) $financing['product_id'];
+                $checkout_mode = $product_id > 0
+                    ? DEBIPRO_Product_Meta::get_checkout_mode($product_id, $this)
+                    : 'embedded';
+                // Only payment / installment have a redirect flow; subscriptions and
+                // mandates always run embedded for now (their redirect sessions are a
+                // later addition), so they keep the on-site card element.
+                $ui_redirect = ('redirect' === $checkout_mode
+                    && DebiProSessionType::Subscription !== $financing['type']
+                    && DebiProSessionType::Mandate !== $financing['type']);
+
+                if ($ui_redirect) :
                     ?>
-                    <p class="form-row form-row-wide debipro-subscription-amount-row">
-                        <label for="debipro-subscription-amount"><?php esc_html_e('Monthly amount', 'debi-payment-for-woocommerce'); ?></label>
-                        <input type="number" step="0.01" min="<?php echo esc_attr($cart_total); ?>"
-                               id="debipro-subscription-amount" name="debipro-subscription-amount"
-                               value="<?php echo esc_attr($cart_total); ?>" class="input-text" />
+                    <p class="debipro-redirect-note">
+                        <?php esc_html_e('You will be redirected to Debi to complete your payment securely.', 'debi-payment-for-woocommerce'); ?>
                     </p>
+                    <input type="hidden" id="debipro-checkout-mode" value="redirect" />
+                <?php else : ?>
+                    <?php
+                    // Editable-amount subscriptions let the customer choose how much to
+                    // pay each month, with the product price as the floor.
+                    $amount_mode = $product_id > 0
+                        ? DEBIPRO_Product_Meta::get_amount_mode($product_id)
+                        : 'fixed';
+                    if (DebiProSessionType::Subscription === $financing['type'] && 'editable' === $amount_mode) :
+                        ?>
+                        <p class="form-row form-row-wide debipro-subscription-amount-row">
+                            <label for="debipro-subscription-amount"><?php esc_html_e('Monthly amount', 'debi-payment-for-woocommerce'); ?></label>
+                            <input type="number" step="0.01" min="<?php echo esc_attr($cart_total); ?>"
+                                   id="debipro-subscription-amount" name="debipro-subscription-amount"
+                                   value="<?php echo esc_attr($cart_total); ?>" class="input-text" />
+                        </p>
+                    <?php endif; ?>
+
+                    <?php // checkout-classic.js renders the installment plan UI here, reading fresh data from data attributes. ?>
+                    <div id="debipro-installment-ui"
+                         data-financing="<?php echo esc_attr($f_json); ?>"
+                         data-cart-total="<?php echo esc_attr($cart_total); ?>"
+                         data-installment-options="<?php echo esc_attr($options_json); ?>">
+                    </div>
+
+                    <?php // js.debi.pro mounts the secure card element here (see assets/js/checkout-classic.js). ?>
+                    <div id="debipro-card-element" class="debipro-card-element"></div>
+                    <span id="debipro-card-errors" class="debipro-card-errors" role="alert" aria-live="polite"></span>
+
+                    <input type="hidden" id="debipro-payment-method-token" name="debipro-payment_method_token" value="" />
+                    <input type="hidden" id="debipro_card_last_4_digits" name="debipro-card_last_four" value="" />
+                    <input type="hidden" id="debipro-cuotas" name="<?php echo esc_attr($this->id); ?>-cuotas" value="" />
+                    <input type="hidden" id="debipro-checkout-mode" value="embedded" />
                 <?php endif; ?>
-
-                <?php // checkout-classic.js renders the installment plan UI here, reading fresh data from data attributes. ?>
-                <div id="debipro-installment-ui"
-                     data-financing="<?php echo esc_attr($f_json); ?>"
-                     data-cart-total="<?php echo esc_attr($cart_total); ?>"
-                     data-installment-options="<?php echo esc_attr($options_json); ?>">
-                </div>
-
-                <?php // js.debi.pro mounts the secure card element here (see assets/js/checkout-classic.js). ?>
-                <div id="debipro-card-element" class="debipro-card-element"></div>
-                <span id="debipro-card-errors" class="debipro-card-errors" role="alert" aria-live="polite"></span>
-
-                <input type="hidden" id="debipro-payment-method-token" name="debipro-payment_method_token" value="" />
-                <input type="hidden" id="debipro_card_last_4_digits" name="debipro-card_last_four" value="" />
-                <input type="hidden" id="debipro-cuotas" name="<?php echo esc_attr($this->id); ?>-cuotas" value="" />
 
                 <div class="clear"></div>
 
