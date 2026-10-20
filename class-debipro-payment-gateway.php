@@ -141,6 +141,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             'installmentsLabel'    => __('Installments', 'debi-payment-for-woocommerce'),
             'installmentsRequired' => __('Please select the number of installments.', 'debi-payment-for-woocommerce'),
             'linkRequired'         => __('To enable this payment method, complete the linking process in the plugin settings.', 'debi-payment-for-woocommerce'),
+            'redirectNotice'       => __('You will be redirected to Debi to complete your payment securely.', 'debi-payment-for-woocommerce'),
         );
     }
 
@@ -949,7 +950,8 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
      * payment webhook arrives, correlated by the session metadata (order_id).
      *
      * @param array{product_id:int,product_title:string,type:DebiProSessionType,monthly_interest:float,surcharge:float,installments:int|null,max_installments:int|null} $financing
-     * @return array{result:string,redirect:string}|false
+     * @return array{result:string,redirect:string}
+     * @throws \Exception On failure, so the checkout (classic and Blocks/Store API) surfaces a user-facing error.
      */
     private function process_redirect_payment(\WC_Order $order, array $financing)
     {
@@ -985,13 +987,11 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                 ),
             ));
         } catch (\Debi\Exception\ExceptionInterface $e) {
-            $this->log_error('Debi session create failed for order ' . (int) $order->get_id() . ': ' . $e->getMessage());
-            wc_add_notice(__('We could not start the payment. Please try again in a moment.', 'debi-payment-for-woocommerce'), 'error');
-            return false;
+            $this->log_error('Debi session create failed for order ' . (int) $order->get_id() . ': ' . $this->describe_debi_error($e));
+            throw new \Exception(esc_html__('We could not start the payment. Please try again in a moment.', 'debi-payment-for-woocommerce'));
         } catch (\Throwable $e) {
-            $this->log_error('Debi session error for order ' . (int) $order->get_id() . ': ' . $e->getMessage());
-            wc_add_notice(__('We could not start the payment. Please try again in a moment.', 'debi-payment-for-woocommerce'), 'error');
-            return false;
+            $this->log_error('Debi session error for order ' . (int) $order->get_id() . ': ' . $this->describe_debi_error($e));
+            throw new \Exception(esc_html__('We could not start the payment. Please try again in a moment.', 'debi-payment-for-woocommerce'));
         }
 
         // Installment sessions produce a subscription (a checkout plan); a plain
@@ -1026,7 +1026,8 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
      * membership queries.
      *
      * @param array{product_id:int,product_title:string,type:DebiProSessionType,monthly_interest:float,surcharge:float,installments:int|null,max_installments:int|null} $financing
-     * @return array{result:string,redirect:string}|false
+     * @return array{result:string,redirect:string}
+     * @throws \Exception On failure, so the checkout (classic and Blocks/Store API) surfaces a user-facing error.
      */
     private function process_subscription_payment(\WC_Order $order, array $financing, string $token)
     {
@@ -1042,15 +1043,11 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                 : 0.0;
             // The product price is the floor; the customer may choose to pay more.
             if ($entered + 0.001 < $base_amount) {
-                wc_add_notice(
-                    sprintf(
-                        /* translators: %s is the minimum (product) amount. */
-                        __('The subscription amount must be at least %s.', 'debi-payment-for-woocommerce'),
-                        function_exists('wc_price') ? wp_strip_all_tags(wc_price($base_amount)) : (string) $base_amount
-                    ),
-                    'error'
-                );
-                return false;
+                throw new \Exception(esc_html(sprintf(
+                    /* translators: %s is the minimum (product) amount. */
+                    __('The subscription amount must be at least %s.', 'debi-payment-for-woocommerce'),
+                    function_exists('wc_price') ? wp_strip_all_tags(wc_price($base_amount)) : (string) $base_amount
+                )));
             }
             $amount = $entered;
         }
@@ -1089,17 +1086,14 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                 ),
             ));
         } catch (\Debi\Exception\RateLimitException $e) {
-            $this->log_error('Rate limit hit for subscription order ' . (int) $order->get_id() . ': ' . $e->getMessage());
-            wc_add_notice(__('The payment service is temporarily busy. Please wait a moment and try again.', 'debi-payment-for-woocommerce'), 'error');
-            return false;
+            $this->log_error('Rate limit hit for subscription order ' . (int) $order->get_id() . ': ' . $this->describe_debi_error($e));
+            throw new \Exception(esc_html__('The payment service is temporarily busy. Please wait a moment and try again.', 'debi-payment-for-woocommerce'));
         } catch (\Debi\Exception\ExceptionInterface $e) {
-            $this->log_error('Subscription create declined for order ' . (int) $order->get_id() . ': ' . $e->getMessage());
-            wc_add_notice(__('The payment was declined or could not be processed. Please check your card and try again.', 'debi-payment-for-woocommerce'), 'error');
-            return false;
+            $this->log_error('Subscription create declined for order ' . (int) $order->get_id() . ': ' . $this->describe_debi_error($e));
+            throw new \Exception(esc_html__('The payment was declined or could not be processed. Please check your card and try again.', 'debi-payment-for-woocommerce'));
         } catch (\Throwable $e) {
-            $this->log_error('Subscription create failed for order ' . (int) $order->get_id() . ': ' . $e->getMessage());
-            wc_add_notice(__('We could not process the payment. Please try again in a moment.', 'debi-payment-for-woocommerce'), 'error');
-            return false;
+            $this->log_error('Subscription create failed for order ' . (int) $order->get_id() . ': ' . $this->describe_debi_error($e));
+            throw new \Exception(esc_html__('We could not process the payment. Please try again in a moment.', 'debi-payment-for-woocommerce'));
         }
 
         if ('' !== $last_four) {
@@ -1148,7 +1142,8 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
      * out-of-band; any such charge flows back as a normal payment webhook.
      *
      * @param array{product_id:int,product_title:string,type:DebiProSessionType,monthly_interest:float,surcharge:float,installments:int|null,max_installments:int|null} $financing
-     * @return array{result:string,redirect:string}|false
+     * @return array{result:string,redirect:string}
+     * @throws \Exception On failure, so the checkout (classic and Blocks/Store API) surfaces a user-facing error.
      */
     private function process_mandate_payment(\WC_Order $order, array $financing, string $token)
     {
@@ -1188,17 +1183,14 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                 ),
             ));
         } catch (\Debi\Exception\RateLimitException $e) {
-            $this->log_error('Rate limit hit for mandate order ' . (int) $order->get_id() . ': ' . $e->getMessage());
-            wc_add_notice(__('The payment service is temporarily busy. Please wait a moment and try again.', 'debi-payment-for-woocommerce'), 'error');
-            return false;
+            $this->log_error('Rate limit hit for mandate order ' . (int) $order->get_id() . ': ' . $this->describe_debi_error($e));
+            throw new \Exception(esc_html__('The payment service is temporarily busy. Please wait a moment and try again.', 'debi-payment-for-woocommerce'));
         } catch (\Debi\Exception\ExceptionInterface $e) {
-            $this->log_error('Mandate create declined for order ' . (int) $order->get_id() . ': ' . $e->getMessage());
-            wc_add_notice(__('The card could not be authorized. Please check your card and try again.', 'debi-payment-for-woocommerce'), 'error');
-            return false;
+            $this->log_error('Mandate create declined for order ' . (int) $order->get_id() . ': ' . $this->describe_debi_error($e));
+            throw new \Exception(esc_html__('The card could not be authorized. Please check your card and try again.', 'debi-payment-for-woocommerce'));
         } catch (\Throwable $e) {
-            $this->log_error('Mandate create failed for order ' . (int) $order->get_id() . ': ' . $e->getMessage());
-            wc_add_notice(__('We could not set up the authorization. Please try again in a moment.', 'debi-payment-for-woocommerce'), 'error');
-            return false;
+            $this->log_error('Mandate create failed for order ' . (int) $order->get_id() . ': ' . $this->describe_debi_error($e));
+            throw new \Exception(esc_html__('We could not set up the authorization. Please try again in a moment.', 'debi-payment-for-woocommerce'));
         }
 
         if ('' !== $last_four) {
@@ -1249,8 +1241,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         $order = wc_get_order($order_id);
 
         if (!$order) {
-            wc_add_notice(__('Order not found.', 'debi-payment-for-woocommerce'), 'error');
-            return false;
+            throw new \Exception(esc_html__('Order not found.', 'debi-payment-for-woocommerce'));
         }
 
         $financing = $this->get_cart_financing();
@@ -1336,17 +1327,14 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                 ),
             ));
         } catch (\Debi\Exception\RateLimitException $e) {
-            $this->log_error('Rate limit hit for order ' . (int) $order_id . ': ' . $e->getMessage());
-            wc_add_notice(__('The payment service is temporarily busy. Please wait a moment and try again.', 'debi-payment-for-woocommerce'), 'error');
-            return false;
+            $this->log_error('Rate limit hit for order ' . (int) $order_id . ': ' . $this->describe_debi_error($e));
+            throw new \Exception(esc_html__('The payment service is temporarily busy. Please wait a moment and try again.', 'debi-payment-for-woocommerce'));
         } catch (\Debi\Exception\ExceptionInterface $e) {
-            $this->log_error('Charge declined for order ' . (int) $order_id . ': ' . $e->getMessage());
-            wc_add_notice(__('The payment was declined or could not be processed. Please check your card and try again.', 'debi-payment-for-woocommerce'), 'error');
-            return false;
+            $this->log_error('Charge declined for order ' . (int) $order_id . ': ' . $this->describe_debi_error($e));
+            throw new \Exception(esc_html__('The payment was declined or could not be processed. Please check your card and try again.', 'debi-payment-for-woocommerce'));
         } catch (\Throwable $e) {
-            $this->log_error('Charge failed for order ' . (int) $order_id . ': ' . $e->getMessage());
-            wc_add_notice(__('We could not process the payment. Please try again in a moment.', 'debi-payment-for-woocommerce'), 'error');
-            return false;
+            $this->log_error('Charge failed for order ' . (int) $order_id . ': ' . $this->describe_debi_error($e));
+            throw new \Exception(esc_html__('We could not process the payment. Please try again in a moment.', 'debi-payment-for-woocommerce'));
         }
 
         // Stored via the order data store (HPOS-safe): payment webhooks look the
@@ -1382,6 +1370,35 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         if (function_exists('wc_get_logger')) {
             wc_get_logger()->error($message, array('source' => 'debipro'));
         }
+    }
+
+    /**
+     * Describe a Debi exception for logging.
+     *
+     * For a Debi API error the plain message is often generic (e.g. "Could not
+     * create session."); the actionable detail lives in the HTTP status, error
+     * code and per-field validation errors the SDK already captured. Append them
+     * so a failure can be diagnosed from the log alone, without reproducing the
+     * call. Non-API throwables fall back to their message.
+     *
+     * @param \Throwable $e
+     * @return string
+     */
+    private function describe_debi_error(\Throwable $e): string
+    {
+        $message = $e->getMessage();
+
+        if ($e instanceof \Debi\Exception\ApiErrorException) {
+            $message .= ' [http_status=' . $e->httpStatus . ']';
+            if (null !== $e->errorCode && '' !== $e->errorCode) {
+                $message .= ' [code=' . $e->errorCode . ']';
+            }
+            if (array() !== $e->validationErrors) {
+                $message .= ' [validation=' . wp_json_encode($e->validationErrors) . ']';
+            }
+        }
+
+        return $message;
     }
 
     /**
@@ -1428,6 +1445,32 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         return sprintf($text, $count, $quota_amount);
     }
 
+    /**
+     * Resolve the effective checkout UI mode for the current cart.
+     *
+     * Only payment / installment products have a redirect flow; subscriptions and
+     * mandates always run embedded for now (their redirect sessions are a later
+     * addition), so they keep the on-site card element. Shared by the classic
+     * payment_fields() and the Blocks integration so both render consistently.
+     *
+     * @return string 'redirect' | 'embedded'
+     */
+    public function get_cart_ui_checkout_mode(): string
+    {
+        $financing  = $this->get_cart_financing();
+        $product_id = (int) $financing['product_id'];
+
+        $checkout_mode = $product_id > 0
+            ? DEBIPRO_Product_Meta::get_checkout_mode($product_id, $this)
+            : 'embedded';
+
+        $ui_redirect = ('redirect' === $checkout_mode
+            && DebiProSessionType::Subscription !== $financing['type']
+            && DebiProSessionType::Mandate !== $financing['type']);
+
+        return $ui_redirect ? 'redirect' : 'embedded';
+    }
+
     public function payment_fields()
     {
         $financing           = $this->get_cart_financing();
@@ -1447,16 +1490,8 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                 <?php echo wp_kses_post($this->get_description()); ?>
 
                 <?php
-                $product_id    = (int) $financing['product_id'];
-                $checkout_mode = $product_id > 0
-                    ? DEBIPRO_Product_Meta::get_checkout_mode($product_id, $this)
-                    : 'embedded';
-                // Only payment / installment have a redirect flow; subscriptions and
-                // mandates always run embedded for now (their redirect sessions are a
-                // later addition), so they keep the on-site card element.
-                $ui_redirect = ('redirect' === $checkout_mode
-                    && DebiProSessionType::Subscription !== $financing['type']
-                    && DebiProSessionType::Mandate !== $financing['type']);
+                $product_id  = (int) $financing['product_id'];
+                $ui_redirect = ('redirect' === $this->get_cart_ui_checkout_mode());
 
                 if ($ui_redirect) :
                     ?>

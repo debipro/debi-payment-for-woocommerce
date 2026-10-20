@@ -14,6 +14,7 @@
 		icon: '',
 		installment_options: [],
 		publishable_key: '',
+		checkout_mode: 'embedded',
 		supports: ['products'],
 		i18n: {},
 	});
@@ -29,6 +30,27 @@
 				'p',
 				{ style: { color: '#c0392b', margin: '8px 0' } },
 				i18n.linkRequired || 'To enable this payment method, complete the linking process in the plugin settings.'
+			);
+		}
+
+		// Redirect mode (payment / installment products): the card is captured on
+		// Debi's hosted page, so we show a notice instead of the embedded element.
+		// No tokenization here; process_payment creates the session and returns the
+		// redirect URL, which WooCommerce Blocks follows after Place Order.
+		// This early return (before the SDK hooks) is safe because checkout_mode is
+		// constant for the component's lifetime, matching the publishable_key guard.
+		if (settings.checkout_mode === 'redirect') {
+			return createElement(
+				'div',
+				{ className: 'debipro-payment-fields' },
+				settings.description
+					? createElement('p', { className: 'debipro-description' }, settings.description)
+					: null,
+				createElement(
+					'p',
+					{ className: 'debipro-redirect-note' },
+					i18n.redirectNotice || 'You will be redirected to Debi to complete your payment securely.'
+				)
 			);
 		}
 
