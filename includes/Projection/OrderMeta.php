@@ -16,6 +16,7 @@ final class OrderMeta {
 	public const SUBSCRIPTION_ID     = '_debipro_subscription_id';
 	public const PAYMENT_ID          = '_debipro_payment_id';
 	public const SESSION_ID          = '_debipro_session_id';
+	public const MANDATE_ID          = '_debipro_mandate_id';
 	public const PRODUCT_ID          = '_debipro_product_id';
 	public const CUSTOMER_ID         = '_debipro_customer_id';
 	public const FINAL_PRICE         = '_debipro_final_price';
@@ -35,6 +36,7 @@ final class OrderMeta {
 
 	public const ORIGIN_INSTALLMENT_PLAN          = 'installment_plan';
 	public const ORIGIN_SUBSCRIPTION              = 'debi_subscription';
+	public const ORIGIN_MANDATE                   = 'debi_mandate';
 	public const ORIGIN_DEBI_SUBSCRIPTION_PAYMENT = 'debi_subscription_payment';
 	public const ORIGIN_DEBI_ONE_OFF_PAYMENT      = 'debi_one_off_payment';
 

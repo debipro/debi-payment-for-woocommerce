@@ -8,8 +8,6 @@ declare(strict_types=1);
 
 namespace DebiPro\Checkout;
 
-use Debi\DebiClient;
-use Debi\Exception\ExceptionInterface;
 use DebiPro\Infrastructure\DebiClientFactory;
 
 /**
@@ -80,7 +78,7 @@ final class SubscriptionCreator {
 		$blog_id = (int) ( function_exists( 'get_current_blog_id' ) ? get_current_blog_id() : 1 );
 
 		$order_id    = (int) $order->get_id();
-		$customer_id = self::create_customer( $client, $customer, $blog_id, $order_id );
+		$customer_id = DebiCustomer::create_for_order( $client, $customer, $blog_id, $order_id );
 
 		if ( '' === $customer_id ) {
 			throw new \RuntimeException( 'Could not register the Debi customer.' );
@@ -88,7 +86,7 @@ final class SubscriptionCreator {
 
 		$order->update_meta_data( '_debipro_customer_id', $customer_id );
 
-		self::attach_payment_method( $client, $token, $customer_id, $blog_id, $order_id );
+		DebiCustomer::attach_payment_method( $client, $token, $customer_id, $blog_id, $order_id );
 
 		$params = array(
 			'amount'            => $amount,
@@ -125,30 +123,6 @@ final class SubscriptionCreator {
 	}
 
 	/**
-	 * Create the Debi customer for this order, keyed idempotently to the order so
-	 * retries never duplicate it.
-	 *
-	 * @param array{name: string, email: string, identification_number?: string} $customer
-	 */
-	private static function create_customer( DebiClient $client, array $customer, int $blog_id, int $order_id ): string {
-		$params         = array(
-			'name'  => (string) ( $customer['name'] ?? '' ),
-			'email' => (string) ( $customer['email'] ?? '' ),
-		);
-		$identification = trim( (string) ( $customer['identification_number'] ?? '' ) );
-		if ( '' !== $identification ) {
-			$params['identification_number'] = $identification;
-		}
-
-		$created = $client->customers->create(
-			$params,
-			array( 'idempotency_key' => sprintf( 'debipro-cust-order-%d-%d', $blog_id, $order_id ) )
-		);
-
-		return isset( $created->id ) ? (string) $created->id : '';
-	}
-
-	/**
 	 * Day of month (1–31) on which Debi bills the subscription: the day the
 	 * customer subscribes. No clamping is needed — Debi charges on the last day
 	 * of any month where the chosen day doesn't exist (e.g. the 31st in February).
@@ -159,35 +133,5 @@ final class SubscriptionCreator {
 		return function_exists( 'current_time' )
 			? (int) current_time( 'j' )
 			: (int) gmdate( 'j' );
-	}
-
-	/**
-	 * Best-effort link of the payment method to this order's customer.
-	 *
-	 * Failures are swallowed: the subscription is still created with the raw
-	 * `payment_method_id`, which is enough for Debi to charge (headless
-	 * integrations often do the same and never call attach).
-	 */
-	private static function attach_payment_method( DebiClient $client, string $token, string $customer_id, int $blog_id, int $order_id ): void {
-		try {
-			$client->paymentMethods->attach(
-				$token,
-				$customer_id,
-				array( 'idempotency_key' => sprintf( 'debipro-attach-%d-%d', $blog_id, $order_id ) )
-			);
-		} catch ( ExceptionInterface $e ) {
-			$message = sprintf(
-				'Debi payment method attach skipped for order %d (customer %s): %s',
-				$order_id,
-				$customer_id,
-				$e->getMessage()
-			);
-			if ( function_exists( 'wc_get_logger' ) ) {
-				wc_get_logger()->warning( $message, array( 'source' => 'debipro' ) );
-			} else {
-				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-				error_log( '[debipro] ' . $message );
-			}
-		}
 	}
 }

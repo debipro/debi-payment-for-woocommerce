@@ -1140,6 +1140,110 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         );
     }
 
+    /**
+     * Embedded mandate checkout: capture a payment method for future debits.
+     *
+     * No money moves at adhesion, so the WooCommerce order is completed at $0 as a
+     * record of the authorization. The merchant charges the mandate later,
+     * out-of-band; any such charge flows back as a normal payment webhook.
+     *
+     * @param array{product_id:int,product_title:string,type:DebiProSessionType,monthly_interest:float,surcharge:float,installments:int|null,max_installments:int|null} $financing
+     * @return array{result:string,redirect:string}|false
+     */
+    private function process_mandate_payment(\WC_Order $order, array $financing, string $token)
+    {
+        $product_id = (int) $financing['product_id'];
+
+        // phpcs:disable WordPress.Security.NonceVerification.Missing -- WooCommerce verifies the checkout nonce before dispatching here.
+        $identification = isset($_POST['participant_id']) ? sanitize_text_field(wp_unslash($_POST['participant_id'])) : '';
+        $last_four      = isset($_POST['debipro-card_last_four']) ? sanitize_text_field(wp_unslash($_POST['debipro-card_last_four'])) : '';
+        // phpcs:enable WordPress.Security.NonceVerification.Missing
+
+        $blog_id    = (int) (function_exists('get_current_blog_id') ? get_current_blog_id() : 1);
+        $wp_user_id = (int) $order->get_customer_id();
+
+        $metadata = array(
+            'blog_id'    => (string) $blog_id,
+            'product_id' => (string) $product_id,
+        );
+        if ($wp_user_id > 0) {
+            $metadata['wp_user_id'] = (string) $wp_user_id;
+        }
+
+        try {
+            $mandate_id = \DebiPro\Checkout\MandateCreator::create(array(
+                'order'                => $order,
+                'payment_method_token' => $token,
+                'description'          => sprintf(
+                    'Mandate - Order %d - Product %d - %s',
+                    (int) $order->get_id(),
+                    $product_id,
+                    (string) $financing['product_title']
+                ),
+                'metadata'             => $metadata,
+                'customer'             => array(
+                    'name'                  => $order->get_billing_last_name() . ', ' . $order->get_billing_first_name(),
+                    'email'                 => $order->get_billing_email(),
+                    'identification_number' => $identification,
+                ),
+            ));
+        } catch (\Debi\Exception\RateLimitException $e) {
+            $this->log_error('Rate limit hit for mandate order ' . (int) $order->get_id() . ': ' . $e->getMessage());
+            wc_add_notice(__('The payment service is temporarily busy. Please wait a moment and try again.', 'debi-payment-for-woocommerce'), 'error');
+            return false;
+        } catch (\Debi\Exception\ExceptionInterface $e) {
+            $this->log_error('Mandate create declined for order ' . (int) $order->get_id() . ': ' . $e->getMessage());
+            wc_add_notice(__('The card could not be authorized. Please check your card and try again.', 'debi-payment-for-woocommerce'), 'error');
+            return false;
+        } catch (\Throwable $e) {
+            $this->log_error('Mandate create failed for order ' . (int) $order->get_id() . ': ' . $e->getMessage());
+            wc_add_notice(__('We could not set up the authorization. Please try again in a moment.', 'debi-payment-for-woocommerce'), 'error');
+            return false;
+        }
+
+        if ('' !== $last_four) {
+            $order->update_meta_data('_debipro_card_last_4_digits', $last_four);
+        }
+        $order->update_meta_data(\DebiPro\Projection\OrderMeta::MANDATE_ID, $mandate_id);
+        $order->update_meta_data(\DebiPro\Projection\OrderMeta::ORIGIN, \DebiPro\Projection\OrderMeta::ORIGIN_MANDATE);
+        if ($product_id > 0) {
+            $order->update_meta_data(\DebiPro\Projection\OrderMeta::PRODUCT_ID, $product_id);
+        }
+        $order->update_meta_data(\DebiPro\Projection\OrderMeta::FINAL_PRICE, '0');
+        $order->update_meta_data(\DebiPro\Projection\OrderMeta::PAYMENT_STATUS, \DebiPro\Projection\OrderMeta::STATUS_PAID);
+
+        // Adhesion moves no money: zero the order so it reads as a $0 record.
+        foreach ($order->get_items() as $item) {
+            if (is_object($item) && method_exists($item, 'set_subtotal')) {
+                $item->set_subtotal('0');
+            }
+            if (is_object($item) && method_exists($item, 'set_total')) {
+                $item->set_total('0');
+            }
+            if (is_object($item) && method_exists($item, 'save')) {
+                $item->save();
+            }
+        }
+        if (method_exists($order, 'calculate_totals')) {
+            $order->calculate_totals(false);
+        } elseif (method_exists($order, 'set_total')) {
+            $order->set_total('0');
+        }
+
+        $order->update_status('completed', __('Debi mandate created; $0 adhesion.', 'debi-payment-for-woocommerce'));
+
+        if (function_exists('WC') && WC()->cart) {
+            WC()->cart->empty_cart();
+        }
+
+        $order->save();
+
+        return array(
+            'result'   => 'success',
+            'redirect' => $this->get_return_url($order),
+        );
+    }
+
     public function process_payment($order_id)
     {
         $order = wc_get_order($order_id);
@@ -1151,20 +1255,14 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
 
         $financing = $this->get_cart_financing();
 
-        // Mandate products capture a payment method without charging; that flow
-        // is not available through this checkout yet.
-        if (DebiProSessionType::Mandate === $financing['type']) {
-            wc_add_notice(__('This product is not available through this checkout yet.', 'debi-payment-for-woocommerce'), 'error');
-            return false;
-        }
-
         // Redirect mode (payment / installment only): hand the buyer Debi's hosted
         // checkout instead of capturing the card on-site. The order already exists
         // (WooCommerce creates it before process_payment); the webhook finalises it
         // later, correlated by the session metadata (order_id / product_id).
-        // Subscriptions always run embedded for now (redirect subscription sessions
-        // are a later addition).
+        // Subscriptions and mandates always run embedded for now (their redirect
+        // sessions are a later addition).
         if (DebiProSessionType::Subscription !== $financing['type']
+            && DebiProSessionType::Mandate !== $financing['type']
             && 'redirect' === DEBIPRO_Product_Meta::get_checkout_mode((int) $financing['product_id'], $this)) {
             return $this->process_redirect_payment($order, $financing);
         }
@@ -1183,6 +1281,11 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         // Recurring subscription (embedded): create an open-ended Debi subscription.
         if (DebiProSessionType::Subscription === $financing['type']) {
             return $this->process_subscription_payment($order, $financing, $token);
+        }
+
+        // Mandate (embedded): capture the payment method for future debits, no charge.
+        if (DebiProSessionType::Mandate === $financing['type']) {
+            return $this->process_mandate_payment($order, $financing, $token);
         }
 
         $max_inst                   = $financing['max_installments'];
