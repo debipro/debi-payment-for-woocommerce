@@ -137,7 +137,6 @@ final class DebiSessionCreator {
 			'description'    => $description,
 			'customer_name'  => (string) ( $customer['name'] ?? '' ),
 			'customer_email' => (string) ( $customer['email'] ?? '' ),
-			'binary_mode'    => true,
 			'metadata'       => $metadata,
 		);
 

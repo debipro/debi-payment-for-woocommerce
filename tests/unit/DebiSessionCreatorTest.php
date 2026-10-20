@@ -56,7 +56,7 @@ final class DebiSessionCreatorTest extends TestCase {
 		$this->assertSame( 'payment', $params['kind'] );
 		$this->assertSame( 1000.0, $params['amount'] );
 		$this->assertSame( 'https://example.test/thanks', $params['success_url'] );
-		$this->assertTrue( $params['binary_mode'] );
+		$this->assertArrayNotHasKey( 'binary_mode', $params );
 		$this->assertSame( 'Doe, Jane', $params['customer_name'] );
 		$this->assertSame( 'jane@example.test', $params['customer_email'] );
 		$this->assertSame( '20304050', $params['customer_identification_number'] );
