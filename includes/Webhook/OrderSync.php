@@ -244,6 +244,20 @@ final class OrderSync {
 	}
 
 	/**
+	 * Reverse a prior external settlement then reproject from Debi. Mirror of
+	 * {@see self::record_external_and_reproject()}: use it to undo an external
+	 * settlement that was recorded by mistake, so the order falls back to the
+	 * standing its actual Debi charges dictate.
+	 */
+	public static function remove_external_and_reproject( \WC_Order $order, float $amount, string $note = '' ): string {
+		$removed = OrderProjector::remove_external_payment( $order, $amount, $note );
+		if ( 'external_removed' !== $removed ) {
+			return $removed;
+		}
+		return self::reproject_order( $order );
+	}
+
+	/**
 	 * @param list<array{id?: string, amount?: float|int|string, status?: string}> $payments
 	 */
 	private static function apply_to_order(

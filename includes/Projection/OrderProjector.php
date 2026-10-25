@@ -156,4 +156,38 @@ final class OrderProjector {
 		$order->save();
 		return 'external_recorded';
 	}
+
+	/**
+	 * Reverse a previously recorded outside-Debi payment (the mirror of
+	 * {@see self::record_external_payment()}). Lowers the stored external settlement by
+	 * $amount (never below zero) and leaves a note. The caller must re-project afterwards
+	 * (see OrderSync::remove_external_and_reproject) so the order status and amounts
+	 * reflect the reduced external total.
+	 */
+	public static function remove_external_payment( \WC_Order $order, float $amount, string $note = '' ): string {
+		$amount = PaymentAmounts::money( $amount );
+		if ( $amount <= 0 ) {
+			return 'invalid_amount';
+		}
+
+		$current = PaymentAmounts::money( (float) $order->get_meta( OrderMeta::AMOUNT_EXTERNAL ) );
+		if ( $current <= 0 ) {
+			return 'nothing_external';
+		}
+
+		$next = PaymentAmounts::money( max( 0.0, $current - $amount ) );
+		$order->update_meta_data( OrderMeta::AMOUNT_EXTERNAL, (string) $next );
+		if ( method_exists( $order, 'add_order_note' ) ) {
+			$order->add_order_note(
+				'' !== $note
+					? $note
+					: sprintf( 'External settlement reversed: %s.', (string) $amount )
+			);
+		}
+
+		// Same contract as record_external_payment: only the external bucket is touched
+		// here; the caller re-projects so Debi sums and WC status recompute.
+		$order->save();
+		return 'external_removed';
+	}
 }

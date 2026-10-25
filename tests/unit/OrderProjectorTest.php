@@ -99,6 +99,38 @@ final class OrderProjectorTest extends TestCase {
 		$this->assertSame( '100', $order->get_meta( OrderMeta::AMOUNT_OVERDUE ) );
 	}
 
+	public function test_record_then_remove_external_payment_adjusts_bucket(): void {
+		$order = new \WC_Order();
+
+		$this->assertSame(
+			'external_recorded',
+			OrderProjector::record_external_payment( $order, 800.0, 'ext in' )
+		);
+		$this->assertSame( '800', $order->get_meta( OrderMeta::AMOUNT_EXTERNAL ) );
+
+		// Removing the same amount clears the external bucket back to zero (the undo).
+		$this->assertSame(
+			'external_removed',
+			OrderProjector::remove_external_payment( $order, 800.0, 'ext out' )
+		);
+		$this->assertSame( '0', $order->get_meta( OrderMeta::AMOUNT_EXTERNAL ) );
+	}
+
+	public function test_remove_external_payment_guards(): void {
+		$order = new \WC_Order();
+
+		// Invalid amount is rejected before anything else.
+		$this->assertSame( 'invalid_amount', OrderProjector::remove_external_payment( $order, 0.0 ) );
+
+		// Nothing recorded yet: there is no external settlement to reverse.
+		$this->assertSame( 'nothing_external', OrderProjector::remove_external_payment( $order, 100.0 ) );
+
+		// Never goes below zero: removing more than present clamps to 0.
+		OrderProjector::record_external_payment( $order, 100.0 );
+		$this->assertSame( 'external_removed', OrderProjector::remove_external_payment( $order, 250.0 ) );
+		$this->assertSame( '0', $order->get_meta( OrderMeta::AMOUNT_EXTERNAL ) );
+	}
+
 	public function test_inbound_does_not_cancel_on_rejected_payment(): void {
 		$order = new \WC_Order();
 		$order->update_meta_data( OrderMeta::ORIGIN, OrderMeta::ORIGIN_DEBI_SUBSCRIPTION_PAYMENT );
