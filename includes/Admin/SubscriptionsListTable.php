@@ -49,6 +49,7 @@ final class SubscriptionsListTable extends \WP_List_Table {
 			'subscription_id' => __( 'Subscription', 'debi-payment-for-woocommerce' ),
 			'customer'        => __( 'Customer', 'debi-payment-for-woocommerce' ),
 			'product'         => __( 'Product', 'debi-payment-for-woocommerce' ),
+			'link_id'         => __( 'Link', 'debi-payment-for-woocommerce' ),
 			'amount'          => __( 'Amount', 'debi-payment-for-woocommerce' ),
 			'status'          => __( 'Status', 'debi-payment-for-woocommerce' ),
 			'schedule'        => __( 'Schedule', 'debi-payment-for-woocommerce' ),
@@ -71,7 +72,7 @@ final class SubscriptionsListTable extends \WP_List_Table {
 	 * @return array<int,string>
 	 */
 	public static function default_hidden(): array {
-		return array( 'start_date', 'debi_created_at', 'debi_updated_at', 'created_at' );
+		return array( 'link_id', 'start_date', 'debi_created_at', 'debi_updated_at', 'created_at' );
 	}
 
 	/**
@@ -278,6 +279,16 @@ final class SubscriptionsListTable extends \WP_List_Table {
 		return $edit
 			? '<a href="' . esc_url( $edit ) . '">' . esc_html( $title ) . '</a>'
 			: esc_html( $title );
+	}
+
+	/**
+	 * The originating hosted link id, when the subscription was born from one.
+	 *
+	 * @param array<string,mixed> $item
+	 */
+	public function column_link_id( array $item ): string {
+		$link_id = (string) ( $item['link_id'] ?? '' );
+		return '' !== $link_id ? '<code>' . esc_html( $link_id ) . '</code>' : '&mdash;';
 	}
 
 	/**

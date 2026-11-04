@@ -33,7 +33,7 @@ use Debi\Resource\Subscription;
 final class SubscriptionsTable {
 
 	/** Bump when the schema changes so {@see maybe_install()} re-runs dbDelta. */
-	public const DB_VERSION = '3';
+	public const DB_VERSION = '4';
 
 	private const VERSION_OPTION = 'debipro_subscriptions_db_version';
 	private const TABLE          = 'debipro_subscriptions';
@@ -75,6 +75,7 @@ final class SubscriptionsTable {
   subscription_id varchar(64) NOT NULL,
   product_id bigint(20) unsigned NOT NULL DEFAULT 0,
   wp_user_id bigint(20) unsigned NOT NULL DEFAULT 0,
+  link_id varchar(64) NOT NULL DEFAULT '',
   customer_id varchar(64) NOT NULL DEFAULT '',
   customer_name varchar(190) NOT NULL DEFAULT '',
   customer_email varchar(190) NOT NULL DEFAULT '',
@@ -103,6 +104,7 @@ final class SubscriptionsTable {
   PRIMARY KEY  (subscription_id),
   KEY user_id (wp_user_id),
   KEY product_id (product_id),
+  KEY link_id (link_id),
   KEY status (status)
 ) {$charset};";
 
@@ -163,6 +165,9 @@ final class SubscriptionsTable {
 			if ( ! empty( $row['customer_id'] ) ) {
 				$data['customer_id'] = (string) $row['customer_id'];
 			}
+			if ( ! empty( $row['link_id'] ) ) {
+				$data['link_id'] = (string) $row['link_id'];
+			}
 			if ( ! empty( $row['product_id'] ) ) {
 				$data['product_id'] = (int) $row['product_id'];
 			}
@@ -177,6 +182,7 @@ final class SubscriptionsTable {
 			'subscription_id' => $id,
 			'product_id'      => (int) ( $row['product_id'] ?? 0 ),
 			'wp_user_id'      => (int) ( $row['wp_user_id'] ?? 0 ),
+			'link_id'         => (string) ( $row['link_id'] ?? '' ),
 			'customer_id'     => (string) ( $row['customer_id'] ?? '' ),
 			'created_at'      => $now,
 			'updated_at'      => $now,
@@ -292,6 +298,7 @@ final class SubscriptionsTable {
 			'subscription_id'           => isset( $sub->id ) ? (string) $sub->id : '',
 			'product_id'                => self::md_int( $md, 'product_id' ),
 			'wp_user_id'                => self::md_int( $md, 'wp_user_id' ),
+			'link_id'                   => isset( $sub->link_id ) ? (string) $sub->link_id : '',
 			'customer_id'               => $customer_id,
 			'customer_name'             => self::obj_str( $customer, 'name' ),
 			'customer_email'            => self::obj_str( $customer, 'email' ),

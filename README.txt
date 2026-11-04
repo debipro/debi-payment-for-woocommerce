@@ -3,7 +3,7 @@ Contributors: systemdebi
 Tags: payment, gateway, debit, installments, subscriptions
 Requires at least: 6.5
 Tested up to: 7.1
-Stable tag: 1.4.0
+Stable tag: 1.5.0
 Requires PHP: 8.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -118,6 +118,9 @@ Yes! The plugin is fully translatable. Translation files can be created using th
 
 == Changelog ==
 
+= 1.5.0 =
+* Subscriptions mirror now records the originating hosted link id (`link_id`), so a subscription created from a payment link can be traced back to it; surfaced as a new (hidden-by-default) "Link" column on the Debi Subscriptions admin screen
+
 = 1.4.0 =
 * Subscriptions: embedded recurring subscriptions backed by a local mirror table, plus a new "Debi Subscriptions" admin screen to view, reconcile and cancel them (full detail: schedule, payment method, customer and Debi timestamps)
 * Mandate: embedded $0 adhesion flow that captures a payment method for future debits, with a clear "authorization only — no charge" presentation at checkout
@@ -171,6 +174,9 @@ Yes! The plugin is fully translatable. Translation files can be created using th
 * Sandbox mode support
 
 == Upgrade Notice ==
+
+= 1.5.0 =
+Tracks the originating payment link on mirrored subscriptions. Recommended for all users.
 
 = 1.4.0 =
 Adds subscriptions, mandates, per-product session/checkout/amount settings, customer-defined amounts with live installments, and a full Spanish translation. Recommended for all users.
