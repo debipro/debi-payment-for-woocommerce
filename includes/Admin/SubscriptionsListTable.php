@@ -359,26 +359,54 @@ final class SubscriptionsListTable extends \WP_List_Table {
 	}
 
 	/**
-	 * Card brand + last four, or the payment-method type for non-card instruments.
+	 * Human label for the payment instrument, shaped per `type`:
+	 *  - card: network + last four + issuer bank ("Visa ···4242 · Banco Galicia"),
+	 *  - cbu:  bank + last four ("Banco Galicia ending in 9876"),
+	 *  - cvu:  "CVU ···1691",
+	 *  - other: the humanized method type.
 	 *
 	 * @param array<string,mixed> $item
 	 */
 	public function column_payment_method( array $item ): string {
-		$brand = (string) ( $item['card_brand'] ?? '' );
-		$last4 = (string) ( $item['card_last4'] ?? '' );
-		$type  = (string) ( $item['payment_method_type'] ?? '' );
-		$pm_id = (string) ( $item['payment_method_id'] ?? '' );
+		$brand  = (string) ( $item['card_brand'] ?? '' );
+		$issuer = (string) ( $item['card_issuer'] ?? '' );
+		$last4  = (string) ( $item['card_last4'] ?? '' );
+		$type   = (string) ( $item['payment_method_type'] ?? '' );
+		$pm_id  = (string) ( $item['payment_method_id'] ?? '' );
 
-		// Card: show the network and the last four digits ("Visa ending in 4242");
-		// anything else falls back to the humanized method type.
-		if ( '' !== $last4 ) {
-			$network = '' !== $brand ? ucfirst( $brand ) : __( 'Card', 'debi-payment-for-woocommerce' );
-			/* translators: 1: card network (e.g. Visa), 2: last four digits. */
-			$label = sprintf( __( '%1$s ending in %2$s', 'debi-payment-for-woocommerce' ), $network, $last4 );
-		} elseif ( '' !== $type ) {
-			$label = ucfirst( str_replace( '_', ' ', $type ) );
-		} else {
-			$label = '';
+		switch ( $type ) {
+			case 'card':
+				if ( '' === $last4 && '' === $brand ) {
+					$label = '';
+					break;
+				}
+				$network = self::network_label( $brand );
+				$label   = '' !== $last4 ? $network . ' ···' . $last4 : $network;
+				if ( '' !== $issuer ) {
+					$label .= ' · ' . $issuer;
+				}
+				break;
+			case 'cbu':
+				// For CBU the bank name is carried in `card_brand`.
+				if ( '' !== $brand && '' !== $last4 ) {
+					/* translators: 1: bank name, 2: last four digits. */
+					$label = sprintf( __( '%1$s ending in %2$s', 'debi-payment-for-woocommerce' ), $brand, $last4 );
+				} elseif ( '' !== $brand ) {
+					$label = $brand;
+				} elseif ( '' !== $last4 ) {
+					$label = __( 'CBU', 'debi-payment-for-woocommerce' ) . ' ···' . $last4;
+				} else {
+					$label = __( 'CBU', 'debi-payment-for-woocommerce' );
+				}
+				break;
+			case 'cvu':
+				$label = '' !== $last4
+					? __( 'CVU', 'debi-payment-for-woocommerce' ) . ' ···' . $last4
+					: __( 'CVU', 'debi-payment-for-woocommerce' );
+				break;
+			default:
+				$label = '' !== $type ? ucfirst( str_replace( '_', ' ', $type ) ) : '';
+				break;
 		}
 
 		if ( '' === $label ) {
@@ -391,6 +419,29 @@ final class SubscriptionsListTable extends \WP_List_Table {
 		}
 
 		return esc_html( $label );
+	}
+
+	/**
+	 * Display name for a Debi card network enum (`visa` → "Visa"), falling back to a
+	 * capitalized value and finally a generic "Card".
+	 *
+	 * @param string $network Card network machine value.
+	 */
+	private static function network_label( string $network ): string {
+		$map = array(
+			'visa'       => 'Visa',
+			'mastercard' => 'Mastercard',
+			'amex'       => 'Amex',
+			'diners'     => 'Diners',
+			'discover'   => 'Discover',
+			'favacard'   => 'Favacard',
+			'jcb'        => 'JCB',
+			'naranja'    => 'Naranja',
+		);
+		if ( isset( $map[ $network ] ) ) {
+			return $map[ $network ];
+		}
+		return '' !== $network ? ucfirst( $network ) : __( 'Card', 'debi-payment-for-woocommerce' );
 	}
 
 	/**

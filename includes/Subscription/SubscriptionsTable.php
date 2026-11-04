@@ -33,7 +33,7 @@ use Debi\Resource\Subscription;
 final class SubscriptionsTable {
 
 	/** Bump when the schema changes so {@see maybe_install()} re-runs dbDelta. */
-	public const DB_VERSION = '4';
+	public const DB_VERSION = '5';
 
 	private const VERSION_OPTION = 'debipro_subscriptions_db_version';
 	private const TABLE          = 'debipro_subscriptions';
@@ -93,6 +93,7 @@ final class SubscriptionsTable {
   payment_method_id varchar(64) NOT NULL DEFAULT '',
   payment_method_type varchar(32) NOT NULL DEFAULT '',
   card_brand varchar(32) NOT NULL DEFAULT '',
+  card_issuer varchar(64) NOT NULL DEFAULT '',
   card_last4 varchar(8) NOT NULL DEFAULT '',
   start_date datetime DEFAULT NULL,
   first_date datetime DEFAULT NULL,
@@ -280,8 +281,8 @@ final class SubscriptionsTable {
 	public static function row_from_resource( Subscription $sub ): array {
 		$md       = $sub->metadata ?? null;
 		$customer = $sub->customer ?? null;
-		$pm       = $sub->payment_method ?? null;
-		$card     = is_object( $pm ) && isset( $pm->card ) ? $pm->card : null;
+		$pm        = $sub->payment_method ?? null;
+		$pm_fields = self::payment_fields( $pm );
 
 		$customer_id = '';
 		if ( is_object( $customer ) && isset( $customer->id ) ) {
@@ -315,8 +316,9 @@ final class SubscriptionsTable {
 			'livemode'                  => ! empty( $sub->livemode ) ? 1 : 0,
 			'payment_method_id'         => self::obj_str( $pm, 'id' ),
 			'payment_method_type'       => self::obj_str( $pm, 'type' ),
-			'card_brand'                => self::card_brand( $card ),
-			'card_last4'                => self::card_last4( $card ),
+			'card_brand'                => $pm_fields['brand'],
+			'card_issuer'               => $pm_fields['issuer'],
+			'card_last4'                => $pm_fields['last4'],
 			'start_date'                => self::to_mysql_dt( $sub->start_date ?? null ),
 			'first_date'                => self::to_mysql_dt( $sub->first_date ?? null ),
 			'upcoming_dates'            => array() === $upcoming ? null : wp_json_encode( $upcoming ),
@@ -349,6 +351,7 @@ final class SubscriptionsTable {
 			'payment_method_id',
 			'payment_method_type',
 			'card_brand',
+			'card_issuer',
 			'card_last4',
 			'start_date',
 			'first_date',
@@ -495,28 +498,57 @@ final class SubscriptionsTable {
 	}
 
 	/**
-	 * The card's last four digits, under whichever key Debi uses (`last4` in the
-	 * card object; some payloads expose `last_four`).
+	 * Flatten the Debi payment method into the three columns we mirror, per `type`.
 	 *
-	 * @param mixed $card
+	 * Exactly one instrument sub-object is present (named by `type`). We keep the
+	 * machine-ish primary label in `brand` and format it for display downstream:
+	 *  - card: `brand` = network enum (`visa`…), `issuer` = bank / financial entity.
+	 *  - cbu:  `brand` = bank name (CVU has no bank, so it stays empty).
+	 * `last4` comes from the matching instrument's last-four field for all types.
+	 *
+	 * @param mixed $pm PaymentMethod resource (or null).
+	 * @return array{brand:string, issuer:string, last4:string}
 	 */
-	/**
-	 * The card's display brand. Debi exposes the network as both a machine value
-	 * (`network` = "visa") and a display name (`name` = "Visa"); prefer the latter.
-	 */
-	private static function card_brand( $card ): string {
-		foreach ( array( 'name', 'network', 'brand' ) as $key ) {
-			$value = self::obj_str( $card, $key );
-			if ( '' !== $value ) {
-				return $value;
-			}
+	private static function payment_fields( $pm ): array {
+		$out = array(
+			'brand'  => '',
+			'issuer' => '',
+			'last4'  => '',
+		);
+		if ( ! is_object( $pm ) ) {
+			return $out;
 		}
-		return '';
+
+		switch ( self::obj_str( $pm, 'type' ) ) {
+			case 'card':
+				$card          = $pm->card ?? null;
+				$out['brand']  = self::obj_str( $card, 'network' );
+				if ( '' === $out['brand'] ) {
+					$out['brand'] = self::obj_str( $card, 'brand' );
+				}
+				$out['issuer'] = self::obj_str( $card, 'issuer' );
+				$out['last4']  = self::card_last4( $card );
+				break;
+			case 'cbu':
+				$cbu            = $pm->cbu ?? null;
+				$out['brand']   = self::obj_str( $cbu, 'bank' );
+				$out['last4']   = self::card_last4( $cbu );
+				break;
+			case 'cvu':
+				$cvu            = $pm->cvu ?? null;
+				$out['last4']   = self::card_last4( $cvu );
+				break;
+		}
+
+		return $out;
 	}
 
 	/**
-	 * The card's last four digits. Debi returns `last_four_digits`; the other keys
-	 * are tolerated so older payloads keep mapping.
+	 * An instrument's last four digits, under whichever key Debi uses
+	 * (`last_four_digits` canonically; older/other payloads expose `last4`/`last_four`).
+	 * Works for card, CBU and CVU sub-objects alike.
+	 *
+	 * @param mixed $card Card / CBU / CVU sub-object.
 	 */
 	private static function card_last4( $card ): string {
 		foreach ( array( 'last_four_digits', 'last4', 'last_four' ) as $key ) {

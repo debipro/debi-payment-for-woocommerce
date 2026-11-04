@@ -60,9 +60,10 @@ final class SubscriptionsTableTest extends TestCase {
 		$customer->name  = 'Doe, Jane';
 		$customer->email = 'jane@example.test';
 
-		$card        = new DebiObject();
-		$card->brand = 'visa';
-		$card->last4 = '4242';
+		$card                   = new DebiObject();
+		$card->network          = 'visa';
+		$card->issuer           = 'Banco Galicia';
+		$card->last_four_digits = '4242';
 
 		$pm       = new DebiObject();
 		$pm->id   = 'PM1';
@@ -108,11 +109,35 @@ final class SubscriptionsTableTest extends TestCase {
 		$this->assertSame( 'PM1', $row['payment_method_id'] );
 		$this->assertSame( 'card', $row['payment_method_type'] );
 		$this->assertSame( 'visa', $row['card_brand'] );
+		$this->assertSame( 'Banco Galicia', $row['card_issuer'] );
 		$this->assertSame( '4242', $row['card_last4'] );
 		$this->assertSame( '2026-10-15 00:00:00', $row['start_date'] );
 		$this->assertSame( '2026-11-15 00:00:00', $row['first_date'] );
 		$this->assertSame( '2026-10-15 12:00:00', $row['debi_created_at'] );
 		$this->assertSame( array( '2026-11-15', '2026-12-15' ), json_decode( (string) $row['upcoming_dates'], true ) );
+	}
+
+	public function test_row_from_resource_maps_cbu_bank_and_last_four(): void {
+		$cbu                   = new DebiObject();
+		$cbu->bank             = 'Banco Galicia';
+		$cbu->last_four_digits = '9876';
+
+		$pm       = new DebiObject();
+		$pm->id   = 'PM2';
+		$pm->type = 'cbu';
+		$pm->cbu  = $cbu;
+
+		$sub                 = new Subscription();
+		$sub->id             = 'SB10';
+		$sub->payment_method = $pm;
+
+		$row = SubscriptionsTable::row_from_resource( $sub );
+
+		$this->assertSame( 'cbu', $row['payment_method_type'] );
+		// For CBU the bank name is carried in card_brand; there is no issuer.
+		$this->assertSame( 'Banco Galicia', $row['card_brand'] );
+		$this->assertSame( '', $row['card_issuer'] );
+		$this->assertSame( '9876', $row['card_last4'] );
 	}
 
 	public function test_row_from_resource_handles_missing_metadata(): void {

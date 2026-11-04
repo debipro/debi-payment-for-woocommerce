@@ -3,7 +3,7 @@ Contributors: systemdebi
 Tags: payment, gateway, debit, installments, subscriptions
 Requires at least: 6.5
 Tested up to: 7.1
-Stable tag: 1.5.0
+Stable tag: 1.6.0
 Requires PHP: 8.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -118,6 +118,9 @@ Yes! The plugin is fully translatable. Translation files can be created using th
 
 == Changelog ==
 
+= 1.6.0 =
+* Subscriptions: the "Payment method" column now reflects the instrument type — cards show network + last four + issuer bank ("Visa ···4242 · Banco Galicia"), CBU shows the bank + last four, CVU shows "CVU ···1691". The mirror now stores the card issuer (new `card_issuer` column) and reads the canonical Debi card fields (`network`, `issuer`, `last_four_digits`) and the CBU/CVU instrument objects
+
 = 1.5.0 =
 * Subscriptions mirror now records the originating hosted link id (`link_id`), so a subscription created from a payment link can be traced back to it; surfaced as a new (hidden-by-default) "Link" column on the Debi Subscriptions admin screen
 
@@ -174,6 +177,9 @@ Yes! The plugin is fully translatable. Translation files can be created using th
 * Sandbox mode support
 
 == Upgrade Notice ==
+
+= 1.6.0 =
+Richer payment-method display on subscriptions (card network + issuer bank, CBU, CVU). Run `wp debipro reconcile-subscriptions` to backfill existing rows. Recommended for all users.
 
 = 1.5.0 =
 Tracks the originating payment link on mirrored subscriptions. Recommended for all users.
