@@ -28,9 +28,13 @@ final class WebhookInstaller {
 	 *
 	 * Payment events drive the order projection; `payment.approved` is included
 	 * because some Debi accounts emit it instead of `payment.updated` on capture.
-	 * Subscription lifecycle events (`cancelled`, `finished`) keep the local
-	 * subscriptions mirror current between charges, so a membership that ends in
-	 * Debi stops gating access without waiting for the next reconcile.
+	 *
+	 * The full subscription lifecycle is subscribed because the handler re-fetches
+	 * the live subscription on any `subscription.*` event and refreshes the local
+	 * membership mirror — so every status change (pause, auto-pause on failed
+	 * charges, resume, cancel, finish, or any update) keeps gating correct without
+	 * waiting for the next reconcile. Over-subscribing is cheap: unhandled shapes
+	 * just trigger an idempotent re-sync.
 	 */
 	public const EVENTS = array(
 		'payment.created',
@@ -38,6 +42,13 @@ final class WebhookInstaller {
 		'payment.retrying',
 		'payment.cancelled',
 		'payment.approved',
+		'subscription.created',
+		'subscription.updated',
+		'subscription.paused',
+		'subscription.automatically_paused',
+		'subscription.resumed',
+		'subscription.incomplete',
+		'subscription.incomplete_expired',
 		'subscription.cancelled',
 		'subscription.finished',
 	);

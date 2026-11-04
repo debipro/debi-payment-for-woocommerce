@@ -29,6 +29,13 @@ final class WebhookInstallerEventsTest extends TestCase {
 				'payment.retrying',
 				'payment.cancelled',
 				'payment.approved',
+				'subscription.created',
+				'subscription.updated',
+				'subscription.paused',
+				'subscription.automatically_paused',
+				'subscription.resumed',
+				'subscription.incomplete',
+				'subscription.incomplete_expired',
 				'subscription.cancelled',
 				'subscription.finished',
 			) as $expected

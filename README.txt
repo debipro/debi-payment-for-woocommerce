@@ -126,7 +126,7 @@ Yes! The plugin is fully translatable. Translation files can be created using th
 * One-off payments now use Debi's native payment (`payments.create`) instead of a single-charge subscription; installment plans remain a scheduled subscription (count = N)
 * Redirect-mode hosted checkout for payment and installment products
 * Uniform Debi metadata (product_id + order_id) on every checkout flow, so each payment/subscription maps back to its store product — the primary key for recurring charges, which have no pre-existing order
-* Webhook endpoint now also subscribes to `payment.approved` and the subscription end events (`subscription.cancelled`, `subscription.finished`), so a membership that ends in Debi stops gating access without waiting for a reconcile
+* Webhook endpoint now also subscribes to `payment.approved` and the full subscription lifecycle (`created`, `updated`, `paused`, `automatically_paused`, `resumed`, `incomplete`, `incomplete_expired`, `cancelled`, `finished`), so any membership status change in Debi — including a pause on failed charges — updates access without waiting for a reconcile
 * WP-CLI: `wp debipro reconcile-subscriptions` refreshes the local subscription mirror from live Debi
 * WP-CLI: `wp debipro setup-webhooks [--all-sites]` creates/updates the Debi webhook endpoint(s) and syncs their subscribed events (scriptable, multisite-friendly)
 * Payment projection: action to reverse a previously recorded external settlement
