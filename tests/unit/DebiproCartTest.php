@@ -23,6 +23,7 @@ final class DebiproCartTest extends TestCase {
 	private const PRODUCT_INSTALLMENT = 102;
 	private const PRODUCT_ONE_TIME_A  = 103;
 	private const PRODUCT_ONE_TIME_B  = 104;
+	private const PRODUCT_MANDATE     = 105;
 
 	/** @var array<int, array{message: string, type: string}> */
 	private array $notices = array();
@@ -34,6 +35,7 @@ final class DebiproCartTest extends TestCase {
 		$this->notices = array();
 
 		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html__' )->returnArg();
 		Functions\when( 'get_option' )->justReturn( array() );
 		Functions\when( 'get_post_meta' )->alias(
 			static function ( int $post_id, string $key ): string {
@@ -45,6 +47,7 @@ final class DebiproCartTest extends TestCase {
 					self::PRODUCT_INSTALLMENT => DebiProSessionType::Installment->value,
 					self::PRODUCT_ONE_TIME_A  => DebiProSessionType::Payment->value,
 					self::PRODUCT_ONE_TIME_B  => DebiProSessionType::Payment->value,
+					self::PRODUCT_MANDATE     => DebiProSessionType::Mandate->value,
 				);
 
 				return $types[ $post_id ] ?? '';
@@ -247,5 +250,89 @@ final class DebiproCartTest extends TestCase {
 
 		$this->assertFalse( $result );
 		$this->assertSame( array(), $this->notices );
+	}
+
+	public function test_mandate_cart_forces_payment_even_when_total_is_zero(): void {
+		$cart = new \WC_Cart(
+			array(
+				'line' => array( 'product_id' => self::PRODUCT_MANDATE ),
+			)
+		);
+
+		// WooCommerce passes false for a $0 total; the filter must override it.
+		$this->assertTrue( DEBIPRO_Cart::mandate_cart_needs_payment( false, $cart ) );
+	}
+
+	public function test_mandate_cart_keeps_payment_untouched_without_mandate(): void {
+		$cart = new \WC_Cart(
+			array(
+				'line' => array( 'product_id' => self::PRODUCT_ONE_TIME_A ),
+			)
+		);
+
+		$this->assertFalse( DEBIPRO_Cart::mandate_cart_needs_payment( false, $cart ) );
+		$this->assertTrue( DEBIPRO_Cart::mandate_cart_needs_payment( true, $cart ) );
+	}
+
+	public function test_mandate_order_forces_payment_even_when_total_is_zero(): void {
+		$order        = new \WC_Order();
+		$order->items = array( $this->order_item( self::PRODUCT_MANDATE ) );
+
+		$this->assertTrue( DEBIPRO_Cart::mandate_order_needs_payment( false, $order ) );
+	}
+
+	public function test_mandate_order_keeps_payment_untouched_without_mandate(): void {
+		$order        = new \WC_Order();
+		$order->items = array( $this->order_item( self::PRODUCT_ONE_TIME_A ) );
+
+		$this->assertFalse( DEBIPRO_Cart::mandate_order_needs_payment( false, $order ) );
+	}
+
+	public function test_mandate_cart_item_price_shows_authorization_label(): void {
+		$item = array( 'product_id' => self::PRODUCT_MANDATE );
+
+		$this->assertSame(
+			'Authorization only — no charge',
+			DEBIPRO_Cart::mandate_cart_item_price( '<span>$100.00</span>', $item )
+		);
+		$this->assertSame(
+			'Authorization only — no charge',
+			DEBIPRO_Cart::mandate_cart_item_subtotal( '<span>$100.00</span>', $item )
+		);
+	}
+
+	public function test_mandate_cart_item_price_untouched_for_non_mandate(): void {
+		$item = array( 'product_id' => self::PRODUCT_ONE_TIME_A );
+
+		$this->assertSame(
+			'<span>$100.00</span>',
+			DEBIPRO_Cart::mandate_cart_item_price( '<span>$100.00</span>', $item )
+		);
+	}
+
+	public function test_mandate_cart_item_data_adds_note(): void {
+		$item = array( 'product_id' => self::PRODUCT_MANDATE );
+
+		$data = DEBIPRO_Cart::mandate_cart_item_data( array(), $item );
+
+		$this->assertCount( 1, $data );
+		$this->assertSame( 'Adhesion', $data[0]['key'] );
+		$this->assertStringContainsString( 'No payment is taken now', $data[0]['value'] );
+	}
+
+	public function test_mandate_cart_item_data_untouched_for_non_mandate(): void {
+		$item = array( 'product_id' => self::PRODUCT_ONE_TIME_A );
+
+		$this->assertSame( array(), DEBIPRO_Cart::mandate_cart_item_data( array(), $item ) );
+	}
+
+	private function order_item( int $product_id ): object {
+		return new class( $product_id ) {
+			public function __construct( private int $product_id ) {}
+
+			public function get_product_id(): int {
+				return $this->product_id;
+			}
+		};
 	}
 }
