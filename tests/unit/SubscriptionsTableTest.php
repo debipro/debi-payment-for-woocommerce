@@ -26,7 +26,6 @@ final class SubscriptionsTableTest extends TestCase {
 
 	public function test_row_from_resource_reads_metadata_customer_and_amount(): void {
 		$md             = new DebiObject();
-		$md->blog_id    = '3';
 		$md->product_id = '7';
 		$md->wp_user_id = '99';
 
@@ -43,12 +42,77 @@ final class SubscriptionsTableTest extends TestCase {
 		$row = SubscriptionsTable::row_from_resource( $sub );
 
 		$this->assertSame( 'SB1', $row['subscription_id'] );
-		$this->assertSame( 3, $row['blog_id'] );
+		$this->assertArrayNotHasKey( 'blog_id', $row );
 		$this->assertSame( 7, $row['product_id'] );
 		$this->assertSame( 99, $row['wp_user_id'] );
 		$this->assertSame( 'CUST1', $row['customer_id'] );
 		$this->assertSame( 1500.5, $row['amount'] );
 		$this->assertSame( 'active', $row['status'] );
+	}
+
+	public function test_row_from_resource_maps_full_subscription_shape(): void {
+		$md             = new DebiObject();
+		$md->product_id = '7';
+		$md->wp_user_id = '99';
+
+		$customer        = new DebiObject();
+		$customer->id    = 'CUST1';
+		$customer->name  = 'Doe, Jane';
+		$customer->email = 'jane@example.test';
+
+		$card        = new DebiObject();
+		$card->brand = 'visa';
+		$card->last4 = '4242';
+
+		$pm       = new DebiObject();
+		$pm->id   = 'PM1';
+		$pm->type = 'card';
+		$pm->card = $card;
+
+		$sub                            = new Subscription();
+		$sub->id                        = 'SB9';
+		$sub->amount                    = 2500.0;
+		$sub->currency                  = 'ARS';
+		$sub->description               = 'Membership';
+		$sub->status                    = 'active';
+		$sub->count                     = null; // open-ended
+		$sub->interval_unit             = 'monthly';
+		$sub->interval                  = 1;
+		$sub->day_of_month              = 15;
+		$sub->day_of_week               = null;
+		$sub->auto_retries_max_attempts = 3;
+		$sub->livemode                  = true;
+		$sub->start_date                = '2026-10-15';
+		$sub->first_date                = '2026-11-15';
+		$sub->upcoming_dates            = array( '2026-11-15', '2026-12-15' );
+		$sub->created_at                = '2026-10-15T12:00:00Z';
+		$sub->updated_at                = '2026-10-20T08:30:00Z';
+		$sub->metadata                  = $md;
+		$sub->customer                  = $customer;
+		$sub->payment_method            = $pm;
+
+		$row = SubscriptionsTable::row_from_resource( $sub );
+
+		$this->assertSame( 'SB9', $row['subscription_id'] );
+		$this->assertSame( 'Doe, Jane', $row['customer_name'] );
+		$this->assertSame( 'jane@example.test', $row['customer_email'] );
+		$this->assertSame( 'ARS', $row['currency'] );
+		$this->assertSame( 'Membership', $row['description'] );
+		$this->assertNull( $row['total_count'] );
+		$this->assertSame( 'monthly', $row['interval_unit'] );
+		$this->assertSame( 1, $row['interval_count'] );
+		$this->assertSame( 15, $row['day_of_month'] );
+		$this->assertNull( $row['day_of_week'] );
+		$this->assertSame( 3, $row['auto_retries_max_attempts'] );
+		$this->assertSame( 1, $row['livemode'] );
+		$this->assertSame( 'PM1', $row['payment_method_id'] );
+		$this->assertSame( 'card', $row['payment_method_type'] );
+		$this->assertSame( 'visa', $row['card_brand'] );
+		$this->assertSame( '4242', $row['card_last4'] );
+		$this->assertSame( '2026-10-15 00:00:00', $row['start_date'] );
+		$this->assertSame( '2026-11-15 00:00:00', $row['first_date'] );
+		$this->assertSame( '2026-10-15 12:00:00', $row['debi_created_at'] );
+		$this->assertSame( array( '2026-11-15', '2026-12-15' ), json_decode( (string) $row['upcoming_dates'], true ) );
 	}
 
 	public function test_row_from_resource_handles_missing_metadata(): void {
@@ -59,7 +123,7 @@ final class SubscriptionsTableTest extends TestCase {
 		$row = SubscriptionsTable::row_from_resource( $sub );
 
 		$this->assertSame( 'SB2', $row['subscription_id'] );
-		$this->assertSame( 0, $row['blog_id'] );
+		$this->assertArrayNotHasKey( 'blog_id', $row );
 		$this->assertSame( 0, $row['product_id'] );
 		$this->assertSame( 0, $row['wp_user_id'] );
 		$this->assertSame( '', $row['customer_id'] );
@@ -74,7 +138,6 @@ final class SubscriptionsTableTest extends TestCase {
 		SubscriptionsTable::upsert(
 			array(
 				'subscription_id' => 'SB1',
-				'blog_id'         => 3,
 				'product_id'      => 7,
 				'wp_user_id'      => 99,
 				'customer_id'     => 'CUST1',
@@ -125,7 +188,7 @@ final class SubscriptionsTableTest extends TestCase {
 
 	private function fake_wpdb(): object {
 		return new class() {
-			public string $base_prefix = 'wp_';
+			public string $prefix = 'wp_';
 			/** @var array<int,array<string,mixed>> */
 			public array $inserted = array();
 			/** @var array<int,array{0:array<string,mixed>,1:array<string,mixed>}> */

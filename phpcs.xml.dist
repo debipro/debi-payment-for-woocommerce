@@ -41,9 +41,15 @@
         <exclude-pattern>includes/Admin/*</exclude-pattern>
         <exclude-pattern>includes/Cli/*</exclude-pattern>
     </rule>
-    <rule ref="WordPress.WP.AlternativeFunctions">
-        <exclude-pattern>tests/*</exclude-pattern>
-    </rule>
+	<rule ref="WordPress.WP.AlternativeFunctions">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+
+	<!-- Test stubs and data providers mirror WordPress / callback signatures, so -->
+	<!-- signature-matching parameters are intentionally unused. -->
+	<rule ref="Generic.CodeAnalysis.UnusedFunctionParameter">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
 
     <!-- Throwing an exception with a message variable is not screen output. -->
     <rule ref="WordPress.Security.EscapeOutput.ExceptionNotEscaped">

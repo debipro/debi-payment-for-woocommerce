@@ -22,6 +22,12 @@ if ( ! class_exists( 'WC_Order' ) ) {
 		public $notes = array();
 		/** @var bool */
 		public $saved = false;
+		/** @var array<int,object> */
+		public $items = array();
+
+		public function get_items() {
+			return $this->items;
+		}
 
 		public function get_meta( $key ) {
 			return $this->meta[ $key ] ?? '';

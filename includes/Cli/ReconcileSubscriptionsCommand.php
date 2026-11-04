@@ -14,14 +14,15 @@ use DebiPro\Subscription\SubscriptionsTable;
 /**
  * WP-CLI: wp debipro reconcile-subscriptions
  *
- * Refreshes the local subscriptions mirror ({base_prefix}debipro_subscriptions)
+ * Refreshes the local per-site subscriptions mirror ({prefix}debipro_subscriptions)
  * from live Debi data. Safety net when subscription webhooks were missed, so a
  * cancelled/paused subscription does not linger as "active" in membership gates.
  *
- * Each row is retrieved with its own site's Debi key (the key is a per-site
- * gateway setting), then upserted — status and amount always refresh; identity
- * columns (product/user) are only overwritten when Debi returns a value, so a
- * sparse resource never clobbers what checkout recorded.
+ * Operates on the current site (pass `--url=<site>` to target another site in a
+ * multisite network; each site has its own Debi key). Each subscription is
+ * retrieved and upserted — status and amount always refresh; identity columns
+ * (product/user) are only overwritten when Debi returns a value, so a sparse
+ * resource never clobbers what checkout recorded.
  */
 final class ReconcileSubscriptionsCommand {
 
@@ -58,26 +59,16 @@ final class ReconcileSubscriptionsCommand {
 		$limit   = isset( $assoc['limit'] ) ? max( 1, (int) $assoc['limit'] ) : 500;
 		$dry_run = isset( $assoc['dry-run'] );
 
-		$rows = SubscriptionsTable::reconcile_rows( $limit );
-		\WP_CLI::log( sprintf( 'Found %d mirrored subscription(s).', count( $rows ) ) );
+		$ids = SubscriptionsTable::reconcile_ids( $limit );
+		\WP_CLI::log( sprintf( 'Found %d mirrored subscription(s).', count( $ids ) ) );
 
-		$is_multisite = function_exists( 'is_multisite' ) && is_multisite();
-		$updated      = 0;
-		$failed       = 0;
+		$updated = 0;
+		$failed  = 0;
 
-		foreach ( $rows as $row ) {
-			$id      = $row['subscription_id'];
-			$blog_id = (int) $row['blog_id'];
-
+		foreach ( $ids as $id ) {
 			if ( $dry_run ) {
-				\WP_CLI::log( sprintf( 'Would reconcile %s (blog %d)', $id, $blog_id ) );
+				\WP_CLI::log( sprintf( 'Would reconcile %s', $id ) );
 				continue;
-			}
-
-			$switched = false;
-			if ( $is_multisite && $blog_id > 0 && function_exists( 'switch_to_blog' ) ) {
-				switch_to_blog( $blog_id );
-				$switched = true;
 			}
 
 			try {
@@ -88,11 +79,7 @@ final class ReconcileSubscriptionsCommand {
 				\WP_CLI::log( sprintf( 'Reconciled %s → %s', $id, isset( $sub->status ) ? (string) $sub->status : '(no status)' ) );
 			} catch ( \Throwable $e ) {
 				++$failed;
-				\WP_CLI::warning( sprintf( 'Failed %s (blog %d): %s', $id, $blog_id, $e->getMessage() ) );
-			} finally {
-				if ( $switched ) {
-					restore_current_blog();
-				}
+				\WP_CLI::warning( sprintf( 'Failed %s: %s', $id, $e->getMessage() ) );
 			}
 		}
 

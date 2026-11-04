@@ -27,8 +27,20 @@ if ( ! defined( 'WPINC' ) ) {
 	define( 'WPINC', true );
 }
 
+// wpdb output-format constants (defined by WordPress core at runtime).
+if ( ! defined( 'ARRAY_A' ) ) {
+	define( 'ARRAY_A', 'ARRAY_A' );
+}
+if ( ! defined( 'ARRAY_N' ) ) {
+	define( 'ARRAY_N', 'ARRAY_N' );
+}
+if ( ! defined( 'OBJECT' ) ) {
+	define( 'OBJECT', 'OBJECT' );
+}
+
 require_once DEBI_PLUGIN_DIR . '/includes/class-debipro-product-meta.php';
 require_once DEBI_PLUGIN_DIR . '/includes/class-debipro-cart.php';
 require_once __DIR__ . '/stubs/wp-meta-functions.php';
 require_once __DIR__ . '/stubs/wc-functions.php';
 require_once __DIR__ . '/stubs/class-wc-order.php';
+require_once __DIR__ . '/stubs/class-wc-cart.php';

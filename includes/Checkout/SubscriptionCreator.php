@@ -43,7 +43,8 @@ use DebiPro\Infrastructure\DebiClientFactory;
 final class SubscriptionCreator {
 
 	/**
-	 * Create the subscription and return its id.
+	 * Create the subscription and return the Debi resource (so callers can mirror
+	 * its full shape, not just the id).
 	 *
 	 * @param array{
 	 *     order: \WC_Order,
@@ -54,11 +55,11 @@ final class SubscriptionCreator {
 	 *     metadata?: array<string, string>,
 	 *     customer: array{name: string, email: string, identification_number?: string}
 	 * } $args
-	 * @return string Subscription id.
+	 * @return \Debi\Resource\Subscription The created subscription.
 	 * @throws \Debi\Exception\ExceptionInterface When Debi rejects the request.
 	 * @throws \RuntimeException                  On configuration / empty-result errors.
 	 */
-	public static function create( array $args ): string {
+	public static function create( array $args ): \Debi\Resource\Subscription {
 		$order        = $args['order'];
 		$token        = trim( (string) ( $args['payment_method_token'] ?? '' ) );
 		$installments = (int) ( $args['installments'] ?? 0 );
@@ -119,7 +120,7 @@ final class SubscriptionCreator {
 			throw new \RuntimeException( 'Debi did not return a subscription id.' );
 		}
 
-		return $subscription_id;
+		return $subscription;
 	}
 
 	/**
