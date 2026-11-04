@@ -14,6 +14,8 @@ if ( ! class_exists( 'WC_Order' ) ) {
 	class WC_Order {
 		/** @var int */
 		public $id = 0;
+		/** @var int */
+		public $customer_id = 0;
 		/** @var string */
 		public $status = 'processing';
 		/** @var array<string,mixed> */
@@ -56,6 +58,10 @@ if ( ! class_exists( 'WC_Order' ) ) {
 
 		public function get_id() {
 			return $this->id;
+		}
+
+		public function get_customer_id() {
+			return $this->customer_id;
 		}
 
 		public function save() {

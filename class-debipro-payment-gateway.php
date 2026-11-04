@@ -1021,6 +1021,35 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
     }
 
     /**
+     * Uniform Debi metadata for every checkout flow.
+     *
+     * Debi propagates this onto the produced payment/subscription, and the webhook
+     * reads it back to attribute the resource. product_id is the primary anchor:
+     * recurring-subscription charges have no pre-existing order, so the product is
+     * what every resource must carry to be mapped to a store product. order_id is
+     * included so the originating (signup) order can also be correlated directly.
+     *
+     * Keep this in sync with {@see \DebiPro\Checkout\DebiSessionCreator::build_params()},
+     * which emits the same key set for redirect-mode sessions.
+     *
+     * @param int $product_id The originating store product (0 when unknown).
+     * @return array<string, string>
+     */
+    public static function build_debi_metadata(\WC_Order $order, int $product_id): array
+    {
+        $metadata = array(
+            'blog_id'    => (string) (function_exists('get_current_blog_id') ? get_current_blog_id() : 1),
+            'order_id'   => (string) $order->get_id(),
+            'product_id' => (string) $product_id,
+        );
+        $wp_user_id = (int) $order->get_customer_id();
+        if ($wp_user_id > 0) {
+            $metadata['wp_user_id'] = (string) $wp_user_id;
+        }
+        return $metadata;
+    }
+
+    /**
      * Redirect-mode checkout: create a Debi hosted session and send the buyer to it.
      *
      * The WooCommerce order already exists (pending); it is finalised when the
@@ -1126,16 +1155,8 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         $last_four      = isset($_POST['debipro-card_last_four']) ? sanitize_text_field(wp_unslash($_POST['debipro-card_last_four'])) : '';
         // phpcs:enable WordPress.Security.NonceVerification.Missing
 
-        $blog_id    = (int) (function_exists('get_current_blog_id') ? get_current_blog_id() : 1);
         $wp_user_id = (int) $order->get_customer_id();
-
-        $metadata = array(
-            'blog_id'    => (string) $blog_id,
-            'product_id' => (string) $product_id,
-        );
-        if ($wp_user_id > 0) {
-            $metadata['wp_user_id'] = (string) $wp_user_id;
-        }
+        $metadata   = self::build_debi_metadata($order, $product_id);
 
         try {
             $subscription = \DebiPro\Checkout\SubscriptionCreator::create(array(
@@ -1227,16 +1248,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         $last_four      = isset($_POST['debipro-card_last_four']) ? sanitize_text_field(wp_unslash($_POST['debipro-card_last_four'])) : '';
         // phpcs:enable WordPress.Security.NonceVerification.Missing
 
-        $blog_id    = (int) (function_exists('get_current_blog_id') ? get_current_blog_id() : 1);
-        $wp_user_id = (int) $order->get_customer_id();
-
-        $metadata = array(
-            'blog_id'    => (string) $blog_id,
-            'product_id' => (string) $product_id,
-        );
-        if ($wp_user_id > 0) {
-            $metadata['wp_user_id'] = (string) $wp_user_id;
-        }
+        $metadata = self::build_debi_metadata($order, $product_id);
 
         try {
             $mandate_id = \DebiPro\Checkout\MandateCreator::create(array(
@@ -1408,6 +1420,9 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                     $financing['product_id'],
                     $financing['product_title']
                 ),
+                // Uniform attribution: carry product_id (primary) + order_id so this
+                // installment plan maps back like every other Debi flow.
+                'metadata'             => self::build_debi_metadata($order, (int) $financing['product_id']),
                 'customer'             => array(
                     'name'                  => $order->get_billing_last_name() . ', ' . $order->get_billing_first_name(),
                     'email'                 => $order->get_billing_email(),
