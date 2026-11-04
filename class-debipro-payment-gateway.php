@@ -49,6 +49,53 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
 
         add_action('woocommerce_update_options_payment_gateways_' . $this->id, array($this, 'process_admin_options'));
         add_action('wp_enqueue_scripts', array($this, 'payment_scripts'));
+        add_action('rest_api_init', array($this, 'register_rest_routes'));
+    }
+
+    /**
+     * Public endpoint that recomputes installment plans for a product at an
+     * arbitrary amount, so the (blocks) checkout can refresh the cuotas selector
+     * live when the buyer edits a customer-defined amount — mirroring the headless
+     * frontend's /checkout/installments. Read-only; exposes nothing a buyer could
+     * not already see on the product page.
+     *
+     * @return void
+     */
+    public function register_rest_routes()
+    {
+        register_rest_route(
+            'debipro/v1',
+            '/installments',
+            array(
+                'methods'             => 'GET',
+                'permission_callback' => '__return_true',
+                'args'                => array(
+                    'product_id' => array(
+                        'required'          => true,
+                        'sanitize_callback' => 'absint',
+                    ),
+                    'amount'     => array(
+                        'required' => false,
+                    ),
+                ),
+                'callback'            => array($this, 'rest_installments'),
+            )
+        );
+    }
+
+    /**
+     * @param \WP_REST_Request $request
+     * @return \WP_REST_Response
+     */
+    public function rest_installments($request)
+    {
+        $product_id = (int) $request->get_param('product_id');
+        $amount_raw = $request->get_param('amount');
+        $amount     = (null === $amount_raw || '' === $amount_raw) ? null : (float) $amount_raw;
+
+        return rest_ensure_response(
+            array('options' => $this->installment_options_for_product($product_id, $amount))
+        );
     }
 
     /**
@@ -142,6 +189,9 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             'installmentsRequired' => __('Please select the number of installments.', 'debi-payment-for-woocommerce'),
             'linkRequired'         => __('To enable this payment method, complete the linking process in the plugin settings.', 'debi-payment-for-woocommerce'),
             'redirectNotice'       => __('You will be redirected to Debi to complete your payment securely.', 'debi-payment-for-woocommerce'),
+            'amountLabel'          => __('Amount', 'debi-payment-for-woocommerce'),
+            'monthlyAmountLabel'   => __('Monthly amount', 'debi-payment-for-woocommerce'),
+            'amountRequired'       => __('Please enter a valid amount.', 'debi-payment-for-woocommerce'),
         );
     }
 
@@ -216,27 +266,54 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         }
 
         $financing = $this->get_cart_financing();
-        // Installment options only apply to installment products; every other
-        // session type (payment, subscription, mandate) has no cuotas selector.
-        if ($financing['type'] !== DebiProSessionType::Installment) {
+        $amount    = (float) WC()->cart->total;
+
+        return $this->installment_options_for_product($financing['product_id'], $amount > 0 ? $amount : null);
+    }
+
+    /**
+     * Installment plan options for a product at a given amount, independent of the
+     * cart (so a REST request without a loaded cart can recompute plans live when
+     * the buyer edits a customer-defined amount). When $amount is null the
+     * product's own price is used as the base.
+     *
+     * @param int        $product_id
+     * @param float|null $amount Base amount before surcharge, or null for the product price.
+     * @return array<int, array{value:int, label:string}>
+     */
+    public function installment_options_for_product(int $product_id, ?float $amount = null): array
+    {
+        if ($product_id <= 0) {
             return [];
         }
 
-        $amount           = (float) WC()->cart->total;
-        $monthly_interest = $financing['monthly_interest'];
-        $surcharge        = $financing['surcharge'];
+        $pf = DEBIPRO_Product_Meta::get_product_financing($product_id, $this);
+
+        // Installment options only apply to installment products; every other
+        // session type (payment, subscription, mandate) has no cuotas selector.
+        if ($pf['type'] !== DebiProSessionType::Installment) {
+            return [];
+        }
+
+        if (null === $amount || $amount <= 0) {
+            $product = function_exists('wc_get_product') ? wc_get_product($product_id) : null;
+            $amount  = ($product && method_exists($product, 'get_price')) ? (float) $product->get_price() : 0.0;
+        }
+
+        $monthly_interest = $pf['monthly_interest'];
+        $surcharge        = $pf['surcharge'];
         $base_amount      = $amount * (1 + $surcharge / 100);
         $options          = array();
 
-        if (null !== $financing['installments']) {
+        if (null !== $pf['installments']) {
             $options[] = $this->format_installment_option(
-                $financing['installments'],
+                $pf['installments'],
                 $monthly_interest,
                 $surcharge,
                 $base_amount
             );
         } else {
-            for ($i = 1; $i <= $financing['max_installments']; $i++) {
+            for ($i = 1; $i <= $pf['max_installments']; $i++) {
                 $options[] = $this->format_installment_option($i, $monthly_interest, $surcharge, $base_amount);
             }
         }
@@ -1038,16 +1115,10 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
 
         // phpcs:disable WordPress.Security.NonceVerification.Missing -- WooCommerce verifies the checkout nonce before dispatching here.
         if ('editable' === $amount_mode) {
-            $entered = isset($_POST['debipro-subscription-amount'])
-                ? (float) wp_unslash($_POST['debipro-subscription-amount'])
-                : 0.0;
-            // The product price is the floor; the customer may choose to pay more.
-            if ($entered + 0.001 < $base_amount) {
-                throw new \Exception(esc_html(sprintf(
-                    /* translators: %s is the minimum (product) amount. */
-                    __('The subscription amount must be at least %s.', 'debi-payment-for-woocommerce'),
-                    function_exists('wc_price') ? wp_strip_all_tags(wc_price($base_amount)) : (string) $base_amount
-                )));
+            // Customer-defined amount: any positive value (no product-price floor).
+            $entered = self::read_editable_amount();
+            if ($entered <= 0) {
+                throw new \Exception(esc_html__('Please enter a valid amount.', 'debi-payment-for-woocommerce'));
             }
             $amount = $entered;
         }
@@ -1067,7 +1138,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         }
 
         try {
-            $subscription_id = \DebiPro\Checkout\SubscriptionCreator::create(array(
+            $subscription = \DebiPro\Checkout\SubscriptionCreator::create(array(
                 'order'                => $order,
                 'payment_method_token' => $token,
                 'installments'         => 0, // open-ended recurring subscription
@@ -1085,6 +1156,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
                     'identification_number' => $identification,
                 ),
             ));
+            $subscription_id = (string) $subscription->id;
         } catch (\Debi\Exception\RateLimitException $e) {
             $this->log_error('Rate limit hit for subscription order ' . (int) $order->get_id() . ': ' . $this->describe_debi_error($e));
             throw new \Exception(esc_html__('The payment service is temporarily busy. Please wait a moment and try again.', 'debi-payment-for-woocommerce'));
@@ -1107,16 +1179,17 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         $order->update_meta_data(\DebiPro\Projection\OrderMeta::FINAL_PRICE, (string) $amount);
         $order->update_meta_data(\DebiPro\Projection\OrderMeta::PAYMENT_STATUS, \DebiPro\Projection\OrderMeta::STATUS_CURRENT);
 
-        // Local mirror for fast "active subscriptions" queries without a Debi round-trip.
-        \DebiPro\Subscription\SubscriptionsTable::upsert(array(
-            'subscription_id' => $subscription_id,
-            'blog_id'         => $blog_id,
-            'product_id'      => $product_id,
-            'wp_user_id'      => $wp_user_id,
-            'customer_id'     => (string) $order->get_meta(\DebiPro\Projection\OrderMeta::CUSTOMER_ID),
-            'amount'          => $amount,
-            'status'          => 'active',
-        ));
+        // Local mirror for fast "active subscriptions" queries without a Debi
+        // round-trip. Map the full resource Debi returned, then pin the identity
+        // columns to the values we know authoritatively here (in case Debi did not
+        // echo the metadata we sent).
+        $mirror_row                = \DebiPro\Subscription\SubscriptionsTable::row_from_resource($subscription);
+        $mirror_row['product_id']  = $product_id;
+        $mirror_row['wp_user_id']  = $wp_user_id;
+        if ('' === (string) ($mirror_row['customer_id'] ?? '')) {
+            $mirror_row['customer_id'] = (string) $order->get_meta(\DebiPro\Projection\OrderMeta::CUSTOMER_ID);
+        }
+        \DebiPro\Subscription\SubscriptionsTable::upsert($mirror_row);
 
         // Wait on-hold until the first charge arrives; the webhook fills this order
         // as charge #1 (see OrderSync).
@@ -1288,6 +1361,21 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         }
 
         $installments       = self::resolve_installments($order, $user_selected_installments);
+
+        // Customer-defined amount (payment / installment): the buyer-entered value
+        // replaces the order total so the charged amount and the WooCommerce order
+        // agree, then it feeds the installment plan exactly like a fixed price.
+        $amount_mode = $financing['product_id'] > 0
+            ? DEBIPRO_Product_Meta::get_amount_mode((int) $financing['product_id'])
+            : 'fixed';
+        if ('editable' === $amount_mode) {
+            $entered = self::read_editable_amount();
+            if ($entered <= 0) {
+                throw new \Exception(esc_html__('Please enter a valid amount.', 'debi-payment-for-woocommerce'));
+            }
+            self::set_order_amount($order, $entered);
+        }
+
         $base_amount        = (float) $order->get_total() * (1 + $financing['surcharge'] / 100);
         $final_price        = self::financed_total($base_amount, $installments, $financing['monthly_interest']);
         $installment_amount = self::resolve_installment_amount($final_price, $installments);
@@ -1309,7 +1397,7 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         }
 
         try {
-            $subscription_id = \DebiPro\Checkout\SubscriptionCreator::create(array(
+            $subscription    = \DebiPro\Checkout\SubscriptionCreator::create(array(
                 'order'                => $order,
                 'payment_method_token' => $token,
                 'installments'         => $installments,
@@ -1336,6 +1424,8 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             $this->log_error('Charge failed for order ' . (int) $order_id . ': ' . $this->describe_debi_error($e));
             throw new \Exception(esc_html__('We could not process the payment. Please try again in a moment.', 'debi-payment-for-woocommerce'));
         }
+
+        $subscription_id = (string) $subscription->id;
 
         // Stored via the order data store (HPOS-safe): payment webhooks look the
         // order up by subscription id and recompute the payment projection.
@@ -1538,6 +1628,62 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             </fieldset>
 
 <?php
+    }
+
+    /**
+     * Read the customer-defined amount posted by the checkout (blocks send
+     * `debipro-amount`; the classic subscription field is accepted as a fallback).
+     * No floor is applied — the caller validates it is positive.
+     *
+     * @return float
+     */
+    private static function read_editable_amount(): float
+    {
+        // phpcs:disable WordPress.Security.NonceVerification.Missing -- WooCommerce verifies the checkout nonce before dispatching to process_payment().
+        if (isset($_POST['debipro-amount'])) {
+            return (float) wp_unslash($_POST['debipro-amount']);
+        }
+        if (isset($_POST['debipro-subscription-amount'])) {
+            return (float) wp_unslash($_POST['debipro-subscription-amount']);
+        }
+        // phpcs:enable WordPress.Security.NonceVerification.Missing
+        return 0.0;
+    }
+
+    /**
+     * Force a (solo-product) order's total to a customer-defined amount by putting
+     * it on the first line and zeroing any others, then recalculating. Used for
+     * editable payment / installment products so the charged amount matches the
+     * WooCommerce order.
+     *
+     * @param \WC_Order $order
+     * @param float     $amount
+     * @return void
+     */
+    private static function set_order_amount(\WC_Order $order, float $amount): void
+    {
+        $first = true;
+        foreach ($order->get_items() as $item) {
+            if (! is_object($item)) {
+                continue;
+            }
+            $line = $first ? $amount : 0;
+            if (method_exists($item, 'set_subtotal')) {
+                $item->set_subtotal((string) $line);
+            }
+            if (method_exists($item, 'set_total')) {
+                $item->set_total((string) $line);
+            }
+            if (method_exists($item, 'save')) {
+                $item->save();
+            }
+            $first = false;
+        }
+        if (method_exists($order, 'calculate_totals')) {
+            $order->calculate_totals(false);
+        } elseif (method_exists($order, 'set_total')) {
+            $order->set_total((string) $amount);
+        }
     }
 
     /**

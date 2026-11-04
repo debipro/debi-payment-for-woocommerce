@@ -93,6 +93,10 @@ final class DEBIPRO_Blocks_Integration extends AbstractPaymentMethodType {
 
 		$installment_options = $this->gateway->get_installment_options_for_cart();
 		$public_key          = trim((string) $this->gateway->get_option('publishable_key'));
+		$financing           = $this->gateway->get_cart_financing();
+		$product_id          = (int) $financing['product_id'];
+		$amount_mode         = $product_id > 0 ? DEBIPRO_Product_Meta::get_amount_mode($product_id) : 'fixed';
+		$cart_total          = ( function_exists('WC') && WC()->cart ) ? (float) WC()->cart->total : 0.0;
 
 		return [
 			'title'               => $this->gateway->get_option('title') ?: 'Debi Payment',
@@ -102,6 +106,13 @@ final class DEBIPRO_Blocks_Integration extends AbstractPaymentMethodType {
 			'installment_options' => $installment_options,
 			'publishable_key'     => $public_key,
 			'checkout_mode'       => $this->gateway->get_cart_ui_checkout_mode(),
+			// Lets the block render a customer-defined amount input and refresh the
+			// cuotas selector live against the Debi installments REST endpoint.
+			'session_type'        => $financing['type']->value,
+			'amount_mode'         => $amount_mode,
+			'product_id'          => $product_id,
+			'cart_total'          => $cart_total,
+			'installments_url'    => rest_url('debipro/v1/installments'),
 			'i18n'                => $this->gateway->get_checkout_i18n(),
 		];
 	}

@@ -8,7 +8,35 @@
 	margin-top: 4px;
 	box-sizing: border-box;
 	padding: 0.75rem 1rem;
-	height: 41px;
+	/* Let padding + line-height define the height; a fixed height with border-box
+	 * subtracted the 0.75rem vertical padding and clipped the 16px label text. */
+	min-height: 41px;
+	line-height: 1.5;
+	border: 1px solid #cbd5e1;
+	border-radius: 6px;
+	background-color: #fff;
+	color: #0f172a;
+	font-size: 16px;
+}
+
+/* Customer-defined amount: label on its own line, input styled like the select. */
+.debipro-payment-fields .debipro-amount-row {
+	display: flex;
+	flex-direction: column;
+	margin: 8px 0 0;
+}
+
+.debipro-payment-fields .debipro-amount-label {
+	margin-bottom: 4px;
+	font-size: 14px;
+}
+
+.debipro-payment-fields .debipro-amount-input {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 0.75rem 1rem;
+	min-height: 41px;
+	line-height: 1.5;
 	border: 1px solid #cbd5e1;
 	border-radius: 6px;
 	background-color: #fff;

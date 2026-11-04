@@ -15,6 +15,11 @@
 		installment_options: [],
 		publishable_key: '',
 		checkout_mode: 'embedded',
+		session_type: 'installment',
+		amount_mode: 'fixed',
+		product_id: 0,
+		cart_total: 0,
+		installments_url: '',
 		supports: ['products'],
 		i18n: {},
 	});
@@ -54,9 +59,24 @@
 			);
 		}
 
+		var isEditable = settings.amount_mode === 'editable';
+		var isInstallment = settings.session_type === 'installment';
+		var isSubscription = settings.session_type === 'subscription';
+
 		var quotasState = useState('');
 		var quotas = quotasState[0];
 		var setQuotas = quotasState[1];
+
+		// Customer-defined amount (free value, no floor) for editable products.
+		var amountState = useState('');
+		var amount = amountState[0];
+		var setAmount = amountState[1];
+
+		// Installment plans, refreshed live from the Debi REST endpoint so the
+		// cuotas and per-installment figures track the entered amount.
+		var optionsState = useState(settings.installment_options || []);
+		var options = optionsState[0];
+		var setOptions = optionsState[1];
 
 		// Refs hold the SDK instances across renders without causing re-renders
 		var mountRef = useRef(null);
@@ -64,6 +84,58 @@
 		var paymentElementRef = useRef(null);
 
 		var onPaymentSetup = eventRegistration.onPaymentSetup;
+
+		// (Re)load installment plans for the current amount. Runs on mount (so the
+		// selector is correct even if the server-rendered options were stale) and
+		// whenever the editable amount changes, debounced. Non-installment products
+		// have no selector, so this is a no-op for them.
+		useEffect(function () {
+			if (!isInstallment || !settings.installments_url || !settings.product_id) {
+				return;
+			}
+			var controller =
+				typeof AbortController !== 'undefined' ? new AbortController() : null;
+			var handle = setTimeout(function () {
+				var url =
+					settings.installments_url +
+					(settings.installments_url.indexOf('?') >= 0 ? '&' : '?') +
+					'product_id=' +
+					encodeURIComponent(settings.product_id);
+				var amt = parseFloat(amount);
+				if (!isNaN(amt) && amt > 0) {
+					url += '&amount=' + encodeURIComponent(amt);
+				}
+				fetch(url, {
+					credentials: 'same-origin',
+					signal: controller ? controller.signal : undefined,
+				})
+					.then(function (r) {
+						return r.json();
+					})
+					.then(function (data) {
+						var opts = (data && data.options) || [];
+						setOptions(opts);
+						setQuotas(function (prev) {
+							var stillValid = opts.some(function (o) {
+								return String(o.value) === String(prev);
+							});
+							if (stillValid) {
+								return prev;
+							}
+							return opts.length ? String(opts[0].value) : '';
+						});
+					})
+					.catch(function () {
+						/* keep the previous options on network error */
+					});
+			}, 300);
+			return function () {
+				clearTimeout(handle);
+				if (controller) {
+					controller.abort();
+				}
+			};
+		}, [amount, isInstallment]);
 
 		// Mount the Debi SDK payment element.
 		useEffect(function () {
@@ -106,7 +178,16 @@
 		// Promise, so we can do the async SDK tokenization here before WC submits.
 		useEffect(function () {
 			var unsubscribe = onPaymentSetup(function () {
-				var options = settings.installment_options || [];
+				if (isEditable) {
+					var entered = parseFloat(amount);
+					if (isNaN(entered) || entered <= 0) {
+						return {
+							type: emitResponse.responseTypes.ERROR,
+							message: i18n.amountRequired || 'Please enter a valid amount.',
+						};
+					}
+				}
+
 				if (options.length > 0 && !quotas) {
 					return {
 						type: emitResponse.responseTypes.ERROR,
@@ -143,6 +224,7 @@
 									'debipro-payment_method_token': result.token.id,
 									'debipro-card_last_four': lastFour,
 									'debipro-cuotas': quotas,
+									'debipro-amount': isEditable ? amount : '',
 								},
 							},
 						};
@@ -160,9 +242,7 @@
 					});
 			});
 			return unsubscribe;
-		}, [onPaymentSetup, quotas]);
-
-		var options = settings.installment_options || [];
+		}, [onPaymentSetup, quotas, amount, options, isEditable]);
 
 		var selectChildren = [
 			createElement(
@@ -180,13 +260,33 @@
 			})
 		);
 
-		return createElement(
-			'div',
-			{ className: 'debipro-payment-fields' },
-			settings.description
-				? createElement('p', { className: 'debipro-description' }, settings.description)
-				: null,
-			options.length > 0
+		var amountField = isEditable
+			? createElement(
+				'p',
+				{ className: 'debipro-amount-row' },
+				createElement(
+					'label',
+					{ htmlFor: 'debipro-amount', className: 'debipro-amount-label' },
+					isSubscription
+						? i18n.monthlyAmountLabel || 'Monthly amount'
+						: i18n.amountLabel || 'Amount'
+				),
+				createElement('input', {
+					id: 'debipro-amount',
+					type: 'number',
+					step: '0.01',
+					min: '0',
+					className: 'debipro-amount-input',
+					value: amount,
+					onChange: function (e) {
+						setAmount(e.target.value);
+					},
+				})
+			  )
+			: null;
+
+		var installmentField =
+			isInstallment && options.length > 0
 				? createElement(
 					'p',
 					null,
@@ -203,7 +303,16 @@
 						selectChildren
 					)
 				  )
+				: null;
+
+		return createElement(
+			'div',
+			{ className: 'debipro-payment-fields' },
+			settings.description
+				? createElement('p', { className: 'debipro-description' }, settings.description)
 				: null,
+			amountField,
+			installmentField,
 			createElement('div', {
 				ref: mountRef,
 				id: 'debipro-payment-element',
