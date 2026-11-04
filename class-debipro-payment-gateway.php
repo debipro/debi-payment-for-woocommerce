@@ -1321,6 +1321,101 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
         );
     }
 
+    /**
+     * Embedded one-off payment checkout.
+     *
+     * A plain `payment` product is a single charge, so this uses Debi's native
+     * payment primitive ({@see \DebiPro\Checkout\PaymentCreator}, backed by
+     * `payments.create`) instead of a single-charge subscription. The order is
+     * left on 'processing'; the payment webhook finalises it, correlated by the
+     * order_id carried in the payment metadata (or the stored payment id).
+     *
+     * @param array{product_id:int,product_title:string,type:DebiProSessionType,monthly_interest:float,surcharge:float,installments:int|null,max_installments:int|null} $financing
+     * @return array{result:string,redirect:string}
+     * @throws \Exception On failure, so the checkout (classic and Blocks/Store API) surfaces a user-facing error.
+     */
+    private function process_single_payment(\WC_Order $order, array $financing, string $token)
+    {
+        $product_id  = (int) $financing['product_id'];
+        $amount_mode = $product_id > 0 ? DEBIPRO_Product_Meta::get_amount_mode($product_id) : 'fixed';
+
+        // WooCommerce verifies the checkout nonce before dispatching here; we only
+        // read the tokenised card data js.debi.pro places into hidden fields.
+        // phpcs:disable WordPress.Security.NonceVerification.Missing
+        if ('editable' === $amount_mode) {
+            $entered = self::read_editable_amount();
+            if ($entered <= 0) {
+                throw new \Exception(esc_html__('Please enter a valid amount.', 'debi-payment-for-woocommerce'));
+            }
+            self::set_order_amount($order, $entered);
+        }
+        $identification = isset($_POST['participant_id']) ? sanitize_text_field(wp_unslash($_POST['participant_id'])) : '';
+        $last_four      = isset($_POST['debipro-card_last_four']) ? sanitize_text_field(wp_unslash($_POST['debipro-card_last_four'])) : '';
+        // phpcs:enable WordPress.Security.NonceVerification.Missing
+
+        $amount = (float) $order->get_total() * (1 + $financing['surcharge'] / 100);
+
+        try {
+            $payment = \DebiPro\Checkout\PaymentCreator::create(array(
+                'order'                => $order,
+                'payment_method_token' => $token,
+                'amount'               => $amount,
+                'description'          => sprintf(
+                    'Order %d - Product %d - %s',
+                    (int) $order->get_id(),
+                    $product_id,
+                    (string) $financing['product_title']
+                ),
+                // Uniform attribution: carry product_id (primary) + order_id so the
+                // payment webhook maps back like every other Debi flow.
+                'metadata'             => self::build_debi_metadata($order, $product_id),
+                'customer'             => array(
+                    'name'                  => $order->get_billing_last_name() . ', ' . $order->get_billing_first_name(),
+                    'email'                 => $order->get_billing_email(),
+                    'identification_number' => $identification,
+                ),
+            ));
+        } catch (\Debi\Exception\RateLimitException $e) {
+            $this->log_error('Rate limit hit for payment order ' . (int) $order->get_id() . ': ' . $this->describe_debi_error($e));
+            throw new \Exception(esc_html__('The payment service is temporarily busy. Please wait a moment and try again.', 'debi-payment-for-woocommerce'));
+        } catch (\Debi\Exception\ExceptionInterface $e) {
+            $this->log_error('Payment declined for order ' . (int) $order->get_id() . ': ' . $this->describe_debi_error($e));
+            throw new \Exception(esc_html__('The payment was declined or could not be processed. Please check your card and try again.', 'debi-payment-for-woocommerce'));
+        } catch (\Throwable $e) {
+            $this->log_error('Payment failed for order ' . (int) $order->get_id() . ': ' . $this->describe_debi_error($e));
+            throw new \Exception(esc_html__('We could not process the payment. Please try again in a moment.', 'debi-payment-for-woocommerce'));
+        }
+
+        $payment_id = (string) $payment->id;
+
+        if ('' !== $last_four) {
+            $order->update_meta_data('_debipro_card_last_4_digits', $last_four);
+        }
+        if ($product_id > 0) {
+            $order->update_meta_data(\DebiPro\Projection\OrderMeta::PRODUCT_ID, $product_id);
+        }
+        $order->update_meta_data(\DebiPro\Projection\OrderMeta::FINAL_PRICE, (string) $amount);
+        // Stored via the order data store (HPOS-safe): payment webhooks look the
+        // order up by payment id (or the order_id in the payment metadata).
+        $order->update_meta_data(\DebiPro\Projection\OrderMeta::PAYMENT_ID, $payment_id);
+        $order->update_meta_data(\DebiPro\Projection\OrderMeta::ORIGIN, \DebiPro\Projection\OrderMeta::ORIGIN_DEBI_ONE_OFF_PAYMENT);
+        $order->update_meta_data(\DebiPro\Projection\OrderMeta::PAYMENT_STATUS, \DebiPro\Projection\OrderMeta::STATUS_CURRENT);
+        $order->save();
+
+        // Moving to 'processing' also reduces stock. The payment webhook later
+        // moves it to completed (payment approved) or cancelled (payment rejected).
+        $order->update_status('processing');
+
+        if (function_exists('WC') && WC()->cart) {
+            WC()->cart->empty_cart();
+        }
+
+        return array(
+            'result'   => 'success',
+            'redirect' => $this->get_return_url($order),
+        );
+    }
+
     public function process_payment($order_id)
     {
         $order = wc_get_order($order_id);
@@ -1364,6 +1459,13 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
             return $this->process_mandate_payment($order, $financing, $token);
         }
 
+        // One-off payment (embedded): a plain charge uses Debi's native payment
+        // (payments.create), not a single-charge subscription. Installments remain
+        // a subscription (count = N scheduled debits) and fall through below.
+        if (DebiProSessionType::Payment === $financing['type']) {
+            return $this->process_single_payment($order, $financing, $token);
+        }
+
         $max_inst                   = $financing['max_installments'];
         $cuotas_raw                 = isset($_POST['debipro-cuotas']) ? absint(wp_unslash($_POST['debipro-cuotas'])) : 0;
         $user_selected_installments = $cuotas_raw > 0 ? $cuotas_raw : 1;
@@ -1374,9 +1476,9 @@ class DEBIPRO_Payment_Gateway extends WC_Payment_Gateway
 
         $installments       = self::resolve_installments($order, $user_selected_installments);
 
-        // Customer-defined amount (payment / installment): the buyer-entered value
-        // replaces the order total so the charged amount and the WooCommerce order
-        // agree, then it feeds the installment plan exactly like a fixed price.
+        // Customer-defined amount (installment): the buyer-entered value replaces
+        // the order total so the charged amount and the WooCommerce order agree,
+        // then it feeds the installment plan exactly like a fixed price.
         $amount_mode = $financing['product_id'] > 0
             ? DEBIPRO_Product_Meta::get_amount_mode((int) $financing['product_id'])
             : 'fixed';

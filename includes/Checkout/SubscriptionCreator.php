@@ -14,8 +14,10 @@ use DebiPro\Infrastructure\DebiClientFactory;
  * Creates the Debi subscription that backs a WooCommerce order, built on the
  * vendored Debi PHP SDK.
  *
- * Debi has no one-off "charge": payment is modelled as a subscription (the
- * installment plan), so this service creates one. The card is collected in the
+ * This backs the two recurring products: an installment plan (`count = N`
+ * scheduled debits) and an open-ended membership (`count` unset). Plain one-off
+ * charges do NOT come here — Debi has a native payment (`payments.create`), so
+ * those go through {@see PaymentCreator}. The card is collected in the
  * browser by js.debi.pro (strict mode); confirmPaymentMethod() creates the
  * payment method server-side via the publishable key and returns its persistent
  * id directly — no server-side conversion step is needed. We chain two idempotent
@@ -23,7 +25,7 @@ use DebiPro\Infrastructure\DebiClientFactory;
  *
  *   1. customers.create          (a fresh customer per order)
  *   2. paymentMethods.attach     (best-effort; see below)
- *   3. subscriptions.create      (the installment plan, billed monthly)
+ *   3. subscriptions.create      (the recurring plan, billed monthly)
  *
  * Attach is attempted so the PM is linked to this order's customer when Debi
  * allows it. If attach fails (e.g. the PM is already attached to another

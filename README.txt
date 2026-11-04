@@ -123,6 +123,7 @@ Yes! The plugin is fully translatable. Translation files can be created using th
 * Mandate: embedded $0 adhesion flow that captures a payment method for future debits, with a clear "authorization only — no charge" presentation at checkout
 * Per-product Debi settings: default session type (payment / subscription / installment / mandate), checkout mode (embedded / redirect) and amount mode (fixed / customer-defined)
 * Customer-defined amount: buyers can set the amount at checkout (donations, free-amount subscriptions), with installment plans recalculated live as the amount changes on the Blocks checkout
+* One-off payments now use Debi's native payment (`payments.create`) instead of a single-charge subscription; installment plans remain a scheduled subscription (count = N)
 * Redirect-mode hosted checkout for payment and installment products
 * Uniform Debi metadata (product_id + order_id) on every checkout flow, so each payment/subscription maps back to its store product — the primary key for recurring charges, which have no pre-existing order
 * Webhook endpoint now also subscribes to `payment.approved` and the subscription end events (`subscription.cancelled`, `subscription.finished`), so a membership that ends in Debi stops gating access without waiting for a reconcile
