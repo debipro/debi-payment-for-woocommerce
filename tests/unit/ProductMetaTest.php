@@ -145,9 +145,9 @@ final class ProductMetaTest extends TestCase {
 
 	public function test_save_product_meta_keeps_only_fixed_installments_when_both_submitted(): void {
 		$_POST = array(
-			DEBIPRO_Product_Meta::SESSION_TYPE_KEY     => DebiProSessionType::Installment->value,
-			DEBIPRO_Product_Meta::INSTALL_KEY  => '3',
-			DEBIPRO_Product_Meta::MAX_INST_KEY => '6',
+			DEBIPRO_Product_Meta::SESSION_TYPE_KEY => DebiProSessionType::Installment->value,
+			DEBIPRO_Product_Meta::INSTALL_KEY      => '3',
+			DEBIPRO_Product_Meta::MAX_INST_KEY     => '6',
 		);
 
 		DEBIPRO_Product_Meta::save_product_meta( self::PRODUCT_ID );
@@ -160,9 +160,9 @@ final class ProductMetaTest extends TestCase {
 		$this->set_product_meta( DEBIPRO_Product_Meta::INSTALL_KEY, '2' );
 
 		$_POST = array(
-			DEBIPRO_Product_Meta::SESSION_TYPE_KEY     => DebiProSessionType::Installment->value,
-			DEBIPRO_Product_Meta::INSTALL_KEY  => '',
-			DEBIPRO_Product_Meta::MAX_INST_KEY => '8',
+			DEBIPRO_Product_Meta::SESSION_TYPE_KEY => DebiProSessionType::Installment->value,
+			DEBIPRO_Product_Meta::INSTALL_KEY      => '',
+			DEBIPRO_Product_Meta::MAX_INST_KEY     => '8',
 		);
 
 		DEBIPRO_Product_Meta::save_product_meta( self::PRODUCT_ID );
@@ -176,9 +176,9 @@ final class ProductMetaTest extends TestCase {
 		$this->set_product_meta( DEBIPRO_Product_Meta::MAX_INST_KEY, '6' );
 
 		$_POST = array(
-			DEBIPRO_Product_Meta::SESSION_TYPE_KEY     => DebiProSessionType::Installment->value,
-			DEBIPRO_Product_Meta::INSTALL_KEY  => '',
-			DEBIPRO_Product_Meta::MAX_INST_KEY => '',
+			DEBIPRO_Product_Meta::SESSION_TYPE_KEY => DebiProSessionType::Installment->value,
+			DEBIPRO_Product_Meta::INSTALL_KEY      => '',
+			DEBIPRO_Product_Meta::MAX_INST_KEY     => '',
 		);
 
 		DEBIPRO_Product_Meta::save_product_meta( self::PRODUCT_ID );
@@ -189,9 +189,9 @@ final class ProductMetaTest extends TestCase {
 
 	public function test_saved_max_installments_prevents_global_fixed_default_on_read(): void {
 		$_POST = array(
-			DEBIPRO_Product_Meta::SESSION_TYPE_KEY     => DebiProSessionType::Installment->value,
-			DEBIPRO_Product_Meta::INSTALL_KEY  => '',
-			DEBIPRO_Product_Meta::MAX_INST_KEY => '5',
+			DEBIPRO_Product_Meta::SESSION_TYPE_KEY => DebiProSessionType::Installment->value,
+			DEBIPRO_Product_Meta::INSTALL_KEY      => '',
+			DEBIPRO_Product_Meta::MAX_INST_KEY     => '5',
 		);
 
 		DEBIPRO_Product_Meta::save_product_meta( self::PRODUCT_ID );

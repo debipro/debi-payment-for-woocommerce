@@ -73,7 +73,7 @@ final class GatewayInstallmentDefaultsTest extends TestCase {
 			array(
 				'secret_key'               => 'sk_test_abc',
 				'publishable_key'          => 'pk_test_xyz',
-				'default_session_type'             => 'installment',
+				'default_session_type'     => 'installment',
 				'default_installments'     => '',
 				'default_max_installments' => '',
 			)
@@ -88,7 +88,7 @@ final class GatewayInstallmentDefaultsTest extends TestCase {
 			array(
 				'secret_key'               => 'sk_test_abc',
 				'publishable_key'          => 'pk_test_xyz',
-				'default_session_type'             => 'installment',
+				'default_session_type'     => 'installment',
 				'default_installments'     => '2',
 				'default_max_installments' => '',
 			)
@@ -103,7 +103,7 @@ final class GatewayInstallmentDefaultsTest extends TestCase {
 			array(
 				'secret_key'               => 'sk_test_abc',
 				'publishable_key'          => 'pk_test_xyz',
-				'default_session_type'             => 'installment',
+				'default_session_type'     => 'installment',
 				'default_installments'     => '',
 				'default_max_installments' => '12',
 			)
@@ -118,7 +118,7 @@ final class GatewayInstallmentDefaultsTest extends TestCase {
 			array(
 				'secret_key'               => 'sk_test_abc',
 				'publishable_key'          => 'pk_test_xyz',
-				'default_session_type'             => 'installment',
+				'default_session_type'     => 'installment',
 				'default_installments'     => '2',
 				'default_max_installments' => '12',
 			)
@@ -134,7 +134,7 @@ final class GatewayInstallmentDefaultsTest extends TestCase {
 			array(
 				'secret_key'               => 'sk_test_abc',
 				'publishable_key'          => 'pk_test_xyz',
-				'default_session_type'             => 'payment',
+				'default_session_type'     => 'payment',
 				'default_installments'     => '',
 				'default_max_installments' => '',
 			)

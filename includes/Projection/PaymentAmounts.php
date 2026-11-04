@@ -33,8 +33,8 @@ final class PaymentAmounts {
 	 * }
 	 */
 	public static function summarize( array $payments ): array {
-		$paid             = 0.0;
-		$overdue          = 0.0;
+		$paid               = 0.0;
+		$overdue            = 0.0;
 		$payments_approved  = 0;
 		$payments_overdue   = 0;
 		$payments_remaining = 0;
@@ -56,12 +56,12 @@ final class PaymentAmounts {
 		}
 
 		return array(
-			'amount_paid'         => self::money( $paid ),
-			'amount_overdue'      => self::money( $overdue ),
-			'payments_approved'   => $payments_approved,
-			'payments_overdue'    => $payments_overdue,
-			'payments_remaining'  => $payments_remaining,
-			'payments_total'      => $payments_approved + $payments_overdue + $payments_remaining,
+			'amount_paid'        => self::money( $paid ),
+			'amount_overdue'     => self::money( $overdue ),
+			'payments_approved'  => $payments_approved,
+			'payments_overdue'   => $payments_overdue,
+			'payments_remaining' => $payments_remaining,
+			'payments_total'     => $payments_approved + $payments_overdue + $payments_remaining,
 		);
 	}
 
