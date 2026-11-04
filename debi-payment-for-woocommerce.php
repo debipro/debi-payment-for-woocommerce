@@ -15,7 +15,7 @@
  * Plugin Name:       Debi Payment for WooCommerce
  * Plugin URI:        https://github.com/debipro/debi-payment-for-woocommerce
  * Description:       Official Debi payment gateway integration for WooCommerce. Accept credit cards with installments and automatic debit payments.
- * Version:           1.3.0
+ * Version:           1.4.0
  * Author:            DEBI
  * Author URI:        https://github.com/debipro
  * License:           GPL-2.0+
@@ -42,7 +42,7 @@ if (!defined('DEBIPRO_PLUGIN_URL')) {
 	define('DEBIPRO_PLUGIN_URL', plugin_dir_url(__FILE__));
 }
 if (!defined('DEBIPRO_PLUGIN_VERSION')) {
-	define('DEBIPRO_PLUGIN_VERSION', '1.3.0');
+	define('DEBIPRO_PLUGIN_VERSION', '1.4.0');
 }
 if (!defined('DEBIPRO_PLUGIN_DIR')) {
 	define('DEBIPRO_PLUGIN_DIR', plugin_dir_path(__FILE__));
@@ -96,13 +96,44 @@ if (!class_exists('DEBIPRO_Keys')) {
 	require_once plugin_dir_path(__FILE__) . 'includes/class-debipro-keys.php';
 }
 
-// Map es_AR to es_ES for translations
-add_filter('plugin_locale', 'debipro_map_locale', 10, 2);
-function debipro_map_locale($locale, $domain) {
-	if ($domain === 'debi-payment-for-woocommerce' && $locale === 'es_AR') {
-		return 'es_ES';
+/**
+ * Load the plugin's bundled translations.
+ *
+ * Two WordPress facts make this non-trivial:
+ *   1. Just-in-time loading only auto-covers wp-content/languages/plugins/, never a
+ *      plugin's own bundled catalog — so the /languages folder needs an explicit load.
+ *   2. Since WP 6.5 translations are stored keyed by the *active* locale. We ship a
+ *      single Spanish catalog (es_ES), so for any Spanish variant with no bundle of
+ *      its own (es_AR, es_MX, …) we load es_ES *under the active locale* — otherwise
+ *      load_plugin_textdomain would file it under the es_ES slot and an es_AR lookup
+ *      would miss it (which is exactly what the old es_AR→es_ES plugin_locale filter
+ *      did, silently falling back to English on modern WordPress).
+ *
+ * Hooked on init per WP 6.7+ guidance (loading a textdomain earlier triggers a
+ * _doing_it_wrong notice).
+ */
+add_action('init', 'debipro_load_textdomain');
+function debipro_load_textdomain() {
+	$domain = 'debi-payment-for-woocommerce';
+	$locale = determine_locale();
+	$dir    = plugin_dir_path(__FILE__) . 'languages/';
+
+	// An exact catalog for the active locale wins (incl. user drop-ins here).
+	$exact = $dir . $domain . '-' . $locale . '.mo';
+	if (is_readable($exact)) {
+		load_textdomain($domain, $exact, $locale);
+		return;
 	}
-	return $locale;
+
+	// Any other Spanish variant reuses the es_ES catalog under the active locale.
+	if (0 === strpos($locale, 'es')) {
+		load_textdomain($domain, $dir . $domain . '-es_ES.mo', $locale);
+		return;
+	}
+
+	// Non-Spanish: defer to the standard loader (also picks up translate.wordpress.org
+	// packs in wp-content/languages/plugins/).
+	load_plugin_textdomain($domain, false, dirname(plugin_basename(__FILE__)) . '/languages');
 }
 
 function debipro_add_payment_gateway($gateways) {
@@ -138,6 +169,7 @@ function debipro_init_payment_gateway() {
 	add_action('rest_api_init', array('DebiPro\\Webhook\\WebhookController', 'register_routes'));
 
 	\DebiPro\Admin\OrderActions::init();
+	\DebiPro\Admin\SubscriptionsPage::init();
 	\DebiPro\Cli\ReconcileOrdersCommand::register();
 	\DebiPro\Cli\ReconcileSubscriptionsCommand::register();
 	\DebiPro\Cli\MigrateSessionTypesCommand::register();

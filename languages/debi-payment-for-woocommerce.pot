@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0+.
 msgid ""
 msgstr ""
-"Project-Id-Version: Debi Payment for WooCommerce 1.1.0\n"
+"Project-Id-Version: Debi Payment for WooCommerce 1.4.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/debi-payment-for-woocommerce\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-06-22T20:12:10+00:00\n"
+"POT-Creation-Date: 2026-10-26T04:45:52+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: debi-payment-for-woocommerce\n"
@@ -44,365 +44,658 @@ msgstr ""
 msgid "Debi Payment"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:107
+#: class-debipro-payment-gateway.php:125
+msgid "Sandbox mode is enabled; no real charges are made."
+msgstr ""
+
+#: class-debipro-payment-gateway.php:181
 msgid "The card form could not be loaded. Please refresh and try again."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:108
+#: class-debipro-payment-gateway.php:182
 msgid "The card could not be validated. Check the details and try again."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:109
-#: class-debipro-payment-gateway.php:970
+#: class-debipro-payment-gateway.php:183
+#: class-debipro-payment-gateway.php:1162
+#: class-debipro-payment-gateway.php:1260
+#: class-debipro-payment-gateway.php:1419
 msgid "The payment service is temporarily busy. Please wait a moment and try again."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:110
+#: class-debipro-payment-gateway.php:184
 msgid "The card form is not ready yet."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:111
+#: class-debipro-payment-gateway.php:185
 msgid "interest-free"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:112
+#: class-debipro-payment-gateway.php:186
 msgid "Total"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:113
+#: class-debipro-payment-gateway.php:187
 msgid "Select the number of installments"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:114
+#: class-debipro-payment-gateway.php:188
 msgid "Installments"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:115
+#: class-debipro-payment-gateway.php:189
 msgid "Please select the number of installments."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:116
+#: class-debipro-payment-gateway.php:190
 msgid "To enable this payment method, complete the linking process in the plugin settings."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:240
+#: class-debipro-payment-gateway.php:191
+#: class-debipro-payment-gateway.php:1589
+msgid "You will be redirected to Debi to complete your payment securely."
+msgstr ""
+
+#: class-debipro-payment-gateway.php:192
+#: includes/Admin/SubscriptionsListTable.php:50
+#: includes/class-debipro-product-meta.php:199
+msgid "Amount"
+msgstr ""
+
+#: class-debipro-payment-gateway.php:193
+#: class-debipro-payment-gateway.php:1602
+msgid "Monthly amount"
+msgstr ""
+
+#: class-debipro-payment-gateway.php:194
+#: class-debipro-payment-gateway.php:1121
+#: class-debipro-payment-gateway.php:1374
+msgid "Please enter a valid amount."
+msgstr ""
+
+#: class-debipro-payment-gateway.php:347
 msgid "Enable/Disable"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:242
+#: class-debipro-payment-gateway.php:349
 msgid "Enable Debi Payments"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:246
+#: class-debipro-payment-gateway.php:353
 msgid "Method Title"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:248
+#: class-debipro-payment-gateway.php:355
 msgid "This controls the title"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:249
+#: class-debipro-payment-gateway.php:356
 msgid "Credit or debit card in installments"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:253
+#: class-debipro-payment-gateway.php:360
 msgid "Secret key"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:256
+#: class-debipro-payment-gateway.php:363
 msgid "Use sk_test_… for sandbox or sk_live_… for production — the environment is inferred from the prefix. Used server-side only; never exposed to the browser."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:259
+#: class-debipro-payment-gateway.php:366
 msgid "Publishable key"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:262
+#: class-debipro-payment-gateway.php:369
 msgid "Safe to expose in the browser; the checkout card element uses it (pk_test_… / pk_live_…). Must match the secret key environment."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:265
+#: class-debipro-payment-gateway.php:372
 msgid "Webhook URL"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:269
+#: class-debipro-payment-gateway.php:376
 msgid "Webhook signing secret"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:272
+#: class-debipro-payment-gateway.php:379
 msgid "Paste the endpoint signing secret from your Debi developers dashboard. Used to verify that incoming webhook events were sent by Debi."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:275
+#: class-debipro-payment-gateway.php:382
 msgid "Product default values"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:277
+#: class-debipro-payment-gateway.php:384
 msgid "These apply when the product does not have its own configuration in the Debi tab."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:280
-msgid "Product type"
+#: class-debipro-payment-gateway.php:387
+#: includes/class-debipro-product-meta.php:169
+msgid "Default checkout type"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:284
-#: includes/class-debipro-product-meta.php:128
-msgid "Installment"
+#: class-debipro-payment-gateway.php:393
+msgid "Default checkout mode"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:285
-msgid "One-time payment"
+#: class-debipro-payment-gateway.php:397
+msgid "Embedded: the card is captured on this site. Redirect: the customer is sent to Debi's hosted checkout. Products can override this."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:289
-#: includes/class-debipro-product-meta.php:137
+#: class-debipro-payment-gateway.php:399
+#: includes/class-debipro-product-meta.php:190
+msgid "Embedded"
+msgstr ""
+
+#: class-debipro-payment-gateway.php:400
+#: includes/class-debipro-product-meta.php:191
+msgid "Redirect"
+msgstr ""
+
+#: class-debipro-payment-gateway.php:404
+#: includes/class-debipro-product-meta.php:213
 msgid "Monthly interest (%)"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:295
-#: includes/class-debipro-product-meta.php:153
+#: class-debipro-payment-gateway.php:410
+#: includes/class-debipro-product-meta.php:229
 msgid "Fixed installments"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:298
-#: includes/class-debipro-product-meta.php:157
+#: class-debipro-payment-gateway.php:413
+#: includes/class-debipro-product-meta.php:233
 msgid "Fixed number of installments. Mutually exclusive with \"Maximum installments\"."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:303
-#: includes/class-debipro-product-meta.php:169
+#: class-debipro-payment-gateway.php:418
+#: includes/class-debipro-product-meta.php:245
 msgid "Maximum installments"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:306
+#: class-debipro-payment-gateway.php:421
 msgid "The customer chooses between 1 and this value. Mutually exclusive with \"Fixed installments\"."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:311
-#: includes/class-debipro-product-meta.php:185
+#: class-debipro-payment-gateway.php:426
+#: includes/class-debipro-product-meta.php:261
 msgid "Surcharge (%)"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:358
+#: class-debipro-payment-gateway.php:473
 msgid "Test / Setup automatically"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:362
-msgid "Uses your secret key to create the endpoint at Debi (subscription.cancelled, subscription.finished) if it does not exist yet, and fills in the signing secret below. Save changes to persist it."
+#: class-debipro-payment-gateway.php:477
+msgid "Uses your secret key to create the endpoint at Debi (payment.created, payment.updated, payment.retrying, payment.cancelled) if it does not exist yet, updates its events if stale, and fills in the signing secret below. Save changes to persist it."
 msgstr ""
 
 #. translators: 1: production dashboard link, 2: testing dashboard link.
-#: class-debipro-payment-gateway.php:369
+#: class-debipro-payment-gateway.php:484
 #, php-format
-msgid "This site is not publicly reachable, so automatic setup is disabled. Add this URL as a webhook endpoint (events: subscription.cancelled, subscription.finished) in your Debi dashboard — Production: %1$s · Testing: %2$s — then paste its signing secret below."
+msgid "This site is not publicly reachable, so automatic setup is disabled. Add this URL as a webhook endpoint (events: payment.created, payment.updated, payment.retrying, payment.cancelled) in your Debi dashboard — Production: %1$s · Testing: %2$s — then paste its signing secret below."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:425
-#: class-debipro-payment-gateway.php:687
+#: class-debipro-payment-gateway.php:540
+#: class-debipro-payment-gateway.php:808
 msgid "You are not allowed to do this."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:429
+#: class-debipro-payment-gateway.php:544
 msgid "Automatic setup is unavailable on local sites."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:437
+#: class-debipro-payment-gateway.php:552
 msgid "Enter a valid secret key first (sk_test_… or sk_live_…)."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:443
+#: class-debipro-payment-gateway.php:558
 msgid "Debi rejected the request. Check the secret key and try again."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:445
+#: class-debipro-payment-gateway.php:560
 msgid "The webhook could not be set up. Please try again."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:449
+#: class-debipro-payment-gateway.php:564
 msgid "The endpoint exists but its signing secret was not returned. Copy it from the Debi dashboard."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:460
-msgid "Webhook created and signing secret saved."
-msgstr ""
-
-#: class-debipro-payment-gateway.php:461
+#: class-debipro-payment-gateway.php:571
 msgid "Existing webhook found; signing secret saved."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:561
-#: class-debipro-payment-gateway.php:857
+#: class-debipro-payment-gateway.php:573
+msgid "Webhook created and signing secret saved."
+msgstr ""
+
+#: class-debipro-payment-gateway.php:575
+msgid "Existing webhook updated with payment events; signing secret saved."
+msgstr ""
+
+#: class-debipro-payment-gateway.php:682
+#: class-debipro-payment-gateway.php:978
 msgid "Not configured"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:563
+#: class-debipro-payment-gateway.php:684
+#: includes/Admin/SubscriptionsListTable.php:415
 msgid "Test"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:568
+#: class-debipro-payment-gateway.php:689
 msgid "Saved secret key:"
 msgstr ""
 
 #. translators: 1: production dashboard link, 2: testing dashboard link.
-#: class-debipro-payment-gateway.php:579
+#: class-debipro-payment-gateway.php:700
 #, php-format
 msgid "Find your keys — Production: %1$s · Testing: %2$s"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:655
-#: class-debipro-payment-gateway.php:896
+#: class-debipro-payment-gateway.php:776
+#: class-debipro-payment-gateway.php:1017
 msgid "When the default product type is Installment, set either \"Fixed installments\" or \"Maximum installments\"."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:694
+#: class-debipro-payment-gateway.php:815
 msgid "Enter at least one key before testing."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:714
-#: class-debipro-payment-gateway.php:855
+#: class-debipro-payment-gateway.php:835
+#: class-debipro-payment-gateway.php:976
 msgid "TEST (sandbox)"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:715
-#: class-debipro-payment-gateway.php:856
+#: class-debipro-payment-gateway.php:836
+#: class-debipro-payment-gateway.php:977
 msgid "PRODUCTION"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:737
+#: class-debipro-payment-gateway.php:858
 msgid "Not a secret key (must start with sk_test_ or sk_live_)."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:738
+#: class-debipro-payment-gateway.php:859
 msgid "Not a publishable key (must start with pk_test_ or pk_live_)."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:744
+#: class-debipro-payment-gateway.php:865
 msgid "The key environment could not be determined from its prefix."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:754
+#: class-debipro-payment-gateway.php:875
 msgid "Could not reach Debi to verify the key. Please try again."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:763
+#: class-debipro-payment-gateway.php:884
 msgid "Authentication failed: Debi rejected this key."
 msgstr ""
 
 #. translators: %s is the environment label (TEST/PRODUCTION).
-#: class-debipro-payment-gateway.php:775
+#: class-debipro-payment-gateway.php:896
 #, php-format
 msgid "OK — %s."
 msgstr ""
 
 #. translators: %d is the HTTP status code returned by Debi.
-#: class-debipro-payment-gateway.php:784
+#: class-debipro-payment-gateway.php:905
 #, php-format
 msgid "Debi returned an unexpected response (HTTP %d)."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:858
+#: class-debipro-payment-gateway.php:979
 msgid "Keys belong to different environments"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:859
+#: class-debipro-payment-gateway.php:980
 msgid "Secret key must start with sk_test_ or sk_live_"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:860
+#: class-debipro-payment-gateway.php:981
 msgid "Publishable key must start with pk_test_ or pk_live_"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:861
+#: class-debipro-payment-gateway.php:982
 msgid "Testing…"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:862
+#: class-debipro-payment-gateway.php:983
 msgid "Fix the Debi keys before saving."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:863
+#: class-debipro-payment-gateway.php:984
 msgid "Enter a key before testing."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:864
+#: class-debipro-payment-gateway.php:985
 msgid "Setting up…"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:865
+#: class-debipro-payment-gateway.php:986
 msgid "Enter your secret key first."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:907
-msgid "Order not found."
+#: class-debipro-payment-gateway.php:1068
+#: class-debipro-payment-gateway.php:1071
+msgid "We could not start the payment. Please try again in a moment."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:919
-msgid "Please enter your card details before paying."
+#: class-debipro-payment-gateway.php:1087
+msgid "Redirecting the customer to the Debi hosted checkout."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:931
-msgid "Invalid number of installments selected."
-msgstr ""
-
-#: class-debipro-payment-gateway.php:974
+#: class-debipro-payment-gateway.php:1165
+#: class-debipro-payment-gateway.php:1422
 msgid "The payment was declined or could not be processed. Please check your card and try again."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:978
+#: class-debipro-payment-gateway.php:1168
+#: class-debipro-payment-gateway.php:1425
 msgid "We could not process the payment. Please try again in a moment."
 msgstr ""
 
+#: class-debipro-payment-gateway.php:1196
+msgid "Debi subscription created; awaiting first charge."
+msgstr ""
+
+#: class-debipro-payment-gateway.php:1263
+msgid "The card could not be authorized. Please check your card and try again."
+msgstr ""
+
+#: class-debipro-payment-gateway.php:1266
+msgid "We could not set up the authorization. Please try again in a moment."
+msgstr ""
+
+#: class-debipro-payment-gateway.php:1298
+msgid "Debi mandate created; $0 adhesion."
+msgstr ""
+
+#: class-debipro-payment-gateway.php:1317
+msgid "Order not found."
+msgstr ""
+
+#: class-debipro-payment-gateway.php:1342
+msgid "Please enter your card details before paying."
+msgstr ""
+
+#: class-debipro-payment-gateway.php:1360
+msgid "Invalid number of installments selected."
+msgstr ""
+
 #. translators: %1$d is the installment count, %2$s is the installment amount, %3$s is the total amount
-#: class-debipro-payment-gateway.php:1025
+#: class-debipro-payment-gateway.php:1505
 #, php-format
 msgid "%1$d installment of $ %2$s ($ %3$s)"
 msgstr ""
 
 #. translators: %1$d is the installment count, %2$s is the installment amount, %3$s is the total amount
-#: class-debipro-payment-gateway.php:1027
+#: class-debipro-payment-gateway.php:1507
 #, php-format
 msgid "%1$d installments of $ %2$s ($ %3$s)"
 msgstr ""
 
 #. translators: %1$d is the installment count, %2$s is the installment amount
-#: class-debipro-payment-gateway.php:1049
+#: class-debipro-payment-gateway.php:1529
 #, php-format
 msgid "%1$d installment of $ %2$s (no interest)"
 msgstr ""
 
 #. translators: %1$d is the installment count, %2$s is the installment amount
-#: class-debipro-payment-gateway.php:1051
+#: class-debipro-payment-gateway.php:1531
 #, php-format
 msgid "%1$d installments of $ %2$s (no interest)"
 msgstr ""
 
-#: class-debipro-payment-gateway.php:1113
+#: class-debipro-payment-gateway.php:1704
 msgid "Could not determine product from order; order contains no valid items."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:1133
-msgid "Requested number of installments was not provided."
-msgstr ""
-
 #. translators: 1: requested installment count, 2: product maximum installments.
-#: class-debipro-payment-gateway.php:1143
+#: class-debipro-payment-gateway.php:1728
 #, php-format
 msgid "Requested installments (%1$d) exceed the product maximum (%2$d)."
 msgstr ""
 
-#: class-debipro-payment-gateway.php:1149
+#: class-debipro-payment-gateway.php:1734
 msgid "Product financing configuration is invalid."
 msgstr ""
 
-#: includes/class-debipro-cart.php:77
+#: includes/Admin/OrderActions.php:30
+msgid "Debi: record external settlement (full remaining)"
+msgstr ""
+
+#: includes/Admin/OrderActions.php:53
+msgid "Debi external settlement skipped: nothing remaining."
+msgstr ""
+
+#. translators: 1: amount, 2: result code
+#: includes/Admin/OrderActions.php:62
+#, php-format
+msgid "Debi external settlement of %1$s applied (%2$s)."
+msgstr ""
+
+#: includes/Admin/OrderActions.php:83
+msgid "Debi payment projection"
+msgstr ""
+
+#: includes/Admin/OrderActions.php:84
+#: includes/Admin/SubscriptionsListTable.php:51
+msgid "Status"
+msgstr ""
+
+#: includes/Admin/OrderActions.php:85
+msgid "Paid"
+msgstr ""
+
+#: includes/Admin/OrderActions.php:86
+msgid "Overdue"
+msgstr ""
+
+#: includes/Admin/OrderActions.php:87
+msgid "Remaining"
+msgstr ""
+
+#: includes/Admin/OrderActions.php:90
+msgid "Origin"
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:47
+#: includes/class-debipro-product-meta.php:60
+msgid "Subscription"
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:48
+msgid "Customer"
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:49
+msgid "Product"
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:52
+msgid "Schedule"
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:53
+msgid "Payments"
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:54
+msgid "Payment method"
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:55
+msgid "Next charge"
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:56
+msgid "Mode"
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:57
+msgid "Start"
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:58
+msgid "Debi created"
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:59
+msgid "Debi updated"
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:60
+msgid "Mirrored"
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:61
+msgid "Synced"
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:113
+msgid "All"
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:134
+msgid "No Debi subscriptions on this store yet."
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:200
+msgid "Reconcile"
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:223
+msgid "Cancel"
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:262
+msgid "Guest"
+msgstr ""
+
+#. translators: 1: interval count, 2: interval unit (weekly/monthly/yearly).
+#: includes/Admin/SubscriptionsListTable.php:311
+#, php-format
+msgid "Every %1$d %2$s"
+msgstr ""
+
+#. translators: %d: day of week (0-6).
+#: includes/Admin/SubscriptionsListTable.php:322
+#, php-format
+msgid "weekday %d"
+msgstr ""
+
+#. translators: %d: day of month.
+#: includes/Admin/SubscriptionsListTable.php:328
+#, php-format
+msgid "day %d"
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:343
+msgid "Open-ended"
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:362
+msgid "Card"
+msgstr ""
+
+#. translators: 1: card network (e.g. Visa), 2: last four digits.
+#: includes/Admin/SubscriptionsListTable.php:364
+#, php-format
+msgid "%1$s ending in %2$s"
+msgstr ""
+
+#. translators: %d: number of further scheduled charges.
+#: includes/Admin/SubscriptionsListTable.php:402
+#, php-format
+msgid "+%d more"
+msgstr ""
+
+#: includes/Admin/SubscriptionsListTable.php:414
+msgid "Live"
+msgstr ""
+
+#: includes/Admin/SubscriptionsPage.php:42
+#: includes/Admin/SubscriptionsPage.php:43
+#: includes/Admin/SubscriptionsPage.php:168
+msgid "Debi Subscriptions"
+msgstr ""
+
+#: includes/Admin/SubscriptionsPage.php:107
+msgid "You do not have permission to do this."
+msgstr ""
+
+#: includes/Admin/SubscriptionsPage.php:155
+msgid "You do not have permission to view this page."
+msgstr ""
+
+#: includes/Admin/SubscriptionsPage.php:171
+msgid "Open-ended recurring subscriptions mirrored from Debi for this store. Read-only; kept current by webhooks and \"wp debipro reconcile-subscriptions\"."
+msgstr ""
+
+#: includes/Admin/SubscriptionsPage.php:226
+msgid "Cancel subscription"
+msgstr ""
+
+#. translators: %s: Debi subscription id.
+#: includes/Admin/SubscriptionsPage.php:232
+#, php-format
+msgid "Cancel subscription %s in Debi? This stops all future charges and cannot be undone from here."
+msgstr ""
+
+#: includes/Admin/SubscriptionsPage.php:239
+msgid "Yes, cancel in Debi"
+msgstr ""
+
+#: includes/Admin/SubscriptionsPage.php:240
+msgid "No, go back"
+msgstr ""
+
+#: includes/Admin/SubscriptionsPage.php:257
+msgid "Subscription reconciled from Debi."
+msgstr ""
+
+#: includes/Admin/SubscriptionsPage.php:258
+msgid "Subscription cancelled in Debi."
+msgstr ""
+
+#: includes/Admin/SubscriptionsPage.php:261
+msgid "No subscription was specified."
+msgstr ""
+
+#: includes/Admin/SubscriptionsPage.php:262
+msgid "Debi is not configured on this store (check the gateway API keys)."
+msgstr ""
+
+#: includes/Admin/SubscriptionsPage.php:263
+msgid "Could not fetch the subscription from Debi. Please try again."
+msgstr ""
+
+#: includes/Admin/SubscriptionsPage.php:264
+msgid "Could not cancel the subscription in Debi. Please try again."
+msgstr ""
+
+#: includes/class-debipro-cart.php:109
+#: includes/class-debipro-cart.php:122
+msgid "Authorization only — no charge"
+msgstr ""
+
+#: includes/class-debipro-cart.php:139
+msgid "Adhesion"
+msgstr ""
+
+#: includes/class-debipro-cart.php:140
+msgid "We only register your payment method for future debits. No payment is taken now."
+msgstr ""
+
+#: includes/class-debipro-cart.php:253
 msgid "The cart already contains an installment product. You cannot add more products."
 msgstr ""
 
-#: includes/class-debipro-cart.php:81
+#: includes/class-debipro-cart.php:257
 msgid "You cannot add an installment product together with other products. Please empty the cart first."
 msgstr ""
 
-#: includes/class-debipro-cart.php:84
+#: includes/class-debipro-cart.php:260
 msgid "These products cannot be purchased together. Please empty the cart first."
 msgstr ""
 
@@ -426,27 +719,57 @@ msgstr ""
 msgid "The Secret and Publishable keys belong to different environments (test vs live). Use a matching pair."
 msgstr ""
 
-#: includes/class-debipro-product-meta.php:40
+#: includes/class-debipro-product-meta.php:44
 msgid "Debi"
 msgstr ""
 
-#: includes/class-debipro-product-meta.php:123
-msgid "Type"
+#: includes/class-debipro-product-meta.php:58
+msgid "Payment"
 msgstr ""
 
-#: includes/class-debipro-product-meta.php:126
-msgid "Installment: fixed or customer-chosen number of payments. Single payment: one charge only."
+#: includes/class-debipro-product-meta.php:59
+msgid "Installment"
 msgstr ""
 
-#: includes/class-debipro-product-meta.php:129
-msgid "Single payment"
+#: includes/class-debipro-product-meta.php:61
+msgid "Mandate"
 msgstr ""
 
-#: includes/class-debipro-product-meta.php:141
-#: includes/class-debipro-product-meta.php:189
+#: includes/class-debipro-product-meta.php:172
+msgid "The Debi session this product opens by default. Payment: a single charge (optionally split into installments). Subscription: a recurring charge. Mandate: capture a payment method for later charges."
+msgstr ""
+
+#: includes/class-debipro-product-meta.php:180
+msgid "Checkout mode"
+msgstr ""
+
+#: includes/class-debipro-product-meta.php:183
+msgid "Embedded: the card is captured on this site. Redirect: the customer is sent to Debi's hosted checkout. Empty = use the plugin default."
+msgstr ""
+
+#. translators: %s: the plugin-level default checkout mode.
+#: includes/class-debipro-product-meta.php:187
+#, php-format
+msgid "Use default (%s)"
+msgstr ""
+
+#: includes/class-debipro-product-meta.php:202
+msgid "Fixed: the product price is charged. Customer-defined: the buyer sets the amount (useful for donations and free-amount subscriptions)."
+msgstr ""
+
+#: includes/class-debipro-product-meta.php:204
+msgid "Fixed amount"
+msgstr ""
+
+#: includes/class-debipro-product-meta.php:205
+msgid "Customer-defined amount"
+msgstr ""
+
+#: includes/class-debipro-product-meta.php:217
+#: includes/class-debipro-product-meta.php:265
 msgid "Empty = use the plugin's default value."
 msgstr ""
 
-#: includes/class-debipro-product-meta.php:173
+#: includes/class-debipro-product-meta.php:249
 msgid "The customer freely chooses between 1 and this value. Mutually exclusive with \"Fixed installments\"."
 msgstr ""
