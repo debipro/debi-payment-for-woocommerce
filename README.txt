@@ -124,7 +124,10 @@ Yes! The plugin is fully translatable. Translation files can be created using th
 * Per-product Debi settings: default session type (payment / subscription / installment / mandate), checkout mode (embedded / redirect) and amount mode (fixed / customer-defined)
 * Customer-defined amount: buyers can set the amount at checkout (donations, free-amount subscriptions), with installment plans recalculated live as the amount changes on the Blocks checkout
 * Redirect-mode hosted checkout for payment and installment products
+* Uniform Debi metadata (product_id + order_id) on every checkout flow, so each payment/subscription maps back to its store product — the primary key for recurring charges, which have no pre-existing order
+* Webhook endpoint now also subscribes to `payment.approved` and the subscription end events (`subscription.cancelled`, `subscription.finished`), so a membership that ends in Debi stops gating access without waiting for a reconcile
 * WP-CLI: `wp debipro reconcile-subscriptions` refreshes the local subscription mirror from live Debi
+* WP-CLI: `wp debipro setup-webhooks [--all-sites]` creates/updates the Debi webhook endpoint(s) and syncs their subscribed events (scriptable, multisite-friendly)
 * Payment projection: action to reverse a previously recorded external settlement
 * Full Spanish (es_ES) translation, loaded for every Spanish locale (es_AR, es_MX, …)
 * Fixed: correct card network and last-four display on subscriptions; clearer installment selector sizing

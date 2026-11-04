@@ -173,6 +173,7 @@ function debipro_init_payment_gateway() {
 	\DebiPro\Cli\ReconcileOrdersCommand::register();
 	\DebiPro\Cli\ReconcileSubscriptionsCommand::register();
 	\DebiPro\Cli\MigrateSessionTypesCommand::register();
+	\DebiPro\Cli\SetupWebhooksCommand::register();
 
 	// Ensure the local subscriptions mirror table exists / is up to date. Cheap
 	// (one option read) unless the schema version changed.

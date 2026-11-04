@@ -23,12 +23,23 @@ use DebiPro\Infrastructure\DebiClientFactory;
  */
 final class WebhookInstaller {
 
-	/** Events the gateway needs delivered to drive payment projection. */
+	/**
+	 * Events the gateway needs delivered.
+	 *
+	 * Payment events drive the order projection; `payment.approved` is included
+	 * because some Debi accounts emit it instead of `payment.updated` on capture.
+	 * Subscription lifecycle events (`cancelled`, `finished`) keep the local
+	 * subscriptions mirror current between charges, so a membership that ends in
+	 * Debi stops gating access without waiting for the next reconcile.
+	 */
 	public const EVENTS = array(
 		'payment.created',
 		'payment.updated',
 		'payment.retrying',
 		'payment.cancelled',
+		'payment.approved',
+		'subscription.cancelled',
+		'subscription.finished',
 	);
 
 	/**
