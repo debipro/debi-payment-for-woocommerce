@@ -38,6 +38,7 @@ final class WebhookInstallerEventsTest extends TestCase {
 				'subscription.incomplete_expired',
 				'subscription.cancelled',
 				'subscription.finished',
+				'mandate.created',
 			) as $expected
 		) {
 			$this->assertContains( $expected, $events, "Endpoint must subscribe to {$expected}." );
@@ -49,7 +50,7 @@ final class WebhookInstallerEventsTest extends TestCase {
 
 		$this->assertSame( array_values( array_unique( $events ) ), $events, 'Event list must not contain duplicates.' );
 		foreach ( $events as $event ) {
-			$this->assertMatchesRegularExpression( '/^(payment|subscription)\.[a-z_]+$/', $event );
+			$this->assertMatchesRegularExpression( '/^(payment|subscription|mandate)\.[a-z_]+$/', $event );
 		}
 	}
 }

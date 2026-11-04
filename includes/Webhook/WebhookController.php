@@ -70,7 +70,8 @@ final class WebhookController {
 			(string) ( $event->id ?? '' ),
 			(string) ( $event->type ?? '' ),
 			$ids['payment_id'],
-			$ids['subscription_id']
+			$ids['subscription_id'],
+			$ids['mandate_id']
 		);
 
 		/**
@@ -87,6 +88,7 @@ final class WebhookController {
 		 * @param array                $context {
 		 *     @type string $payment_id      Payment id when the event resource is a payment.
 		 *     @type string $subscription_id Subscription id when known.
+		 *     @type string $mandate_id      Mandate id when the event resource is a mandate.
 		 *     @type string $event_type      Debi event type (e.g. 'payment.updated').
 		 *     @type string $event_id        Debi event id (idempotency).
 		 *     @type string $result          OrderSync result code (e.g. 'projected_paid',
@@ -100,6 +102,7 @@ final class WebhookController {
 			array(
 				'payment_id'      => $ids['payment_id'],
 				'subscription_id' => $ids['subscription_id'],
+				'mandate_id'      => $ids['mandate_id'],
 				'event_type'      => (string) ( $event->type ?? '' ),
 				'event_id'        => (string) ( $event->id ?? '' ),
 				'result'          => $result,
@@ -129,13 +132,14 @@ final class WebhookController {
 	}
 
 	/**
-	 * Extract payment and subscription ids from a Debi event.
+	 * Extract payment, subscription and mandate ids from a Debi event.
 	 *
-	 * @return array{payment_id: string, subscription_id: string}
+	 * @return array{payment_id: string, subscription_id: string, mandate_id: string}
 	 */
 	public static function ids_from( Event $event ): array {
 		$payment_id      = '';
 		$subscription_id = '';
+		$mandate_id      = '';
 		$type            = (string) ( $event->type ?? '' );
 		$resource        = (string) ( $event->resource ?? '' );
 		$resource_id     = is_string( $event->resource_id ?? null ) ? (string) $event->resource_id : '';
@@ -145,6 +149,9 @@ final class WebhookController {
 		}
 		if ( 0 === strpos( $type, 'subscription.' ) || 'subscription' === $resource ) {
 			$subscription_id = $resource_id;
+		}
+		if ( 0 === strpos( $type, 'mandate.' ) || 'mandate' === $resource ) {
+			$mandate_id = $resource_id;
 		}
 
 		$data = $event->data ?? null;
@@ -165,12 +172,16 @@ final class WebhookController {
 				if ( 'subscription' === $object_name && '' !== $id ) {
 					$subscription_id = $id;
 				}
+				if ( 'mandate' === $object_name && '' !== $id ) {
+					$mandate_id = $id;
+				}
 			}
 		}
 
 		return array(
 			'payment_id'      => $payment_id,
 			'subscription_id' => $subscription_id,
+			'mandate_id'      => $mandate_id,
 		);
 	}
 }

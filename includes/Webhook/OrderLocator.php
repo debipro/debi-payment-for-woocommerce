@@ -47,6 +47,22 @@ final class OrderLocator {
 	}
 
 	/**
+	 * Order carrying a Debi mandate id, if any. Both the embedded checkout and the
+	 * `mandate.created` webhook stamp {@see OrderMeta::MANDATE_ID}, so this is the
+	 * idempotency key that keeps a single $0 adhesion order per mandate.
+	 *
+	 * @return \WC_Order|null
+	 */
+	public static function find_by_mandate_id( string $mandate_id ) {
+		if ( '' === $mandate_id ) {
+			return null;
+		}
+
+		$orders = self::orders_by_meta( OrderMeta::MANDATE_ID, $mandate_id );
+		return $orders[0] ?? null;
+	}
+
+	/**
 	 * Recurring-subscription signup order still awaiting its first charge.
 	 *
 	 * The signup order carries the subscription id and the recurring origin but no

@@ -59,12 +59,20 @@ final class OrderSync {
 		string $event_id,
 		string $type,
 		string $payment_id = '',
-		string $subscription_id = ''
+		string $subscription_id = '',
+		string $mandate_id = ''
 	): string {
 		// Subscription lifecycle events only refresh the local mirror table; they
 		// never create or move orders (charges do that, via payment events).
 		if ( 0 === strpos( $type, 'subscription.' ) ) {
 			return self::handle_subscription_event( $subscription_id );
+		}
+
+		// Mandate adhesions: materialize the $0 order for a mandate born from a
+		// hosted link. The embedded checkout already creates it synchronously, so
+		// this dedupes against that same order by mandate id.
+		if ( 0 === strpos( $type, 'mandate.' ) ) {
+			return self::handle_mandate_event( $type, $mandate_id );
 		}
 
 		if ( ! in_array( $type, self::PAYMENT_EVENTS, true ) ) {
@@ -405,6 +413,57 @@ final class OrderSync {
 			}
 		}
 		return array();
+	}
+
+	/**
+	 * Create the $0 adhesion order for a newly created mandate, idempotently.
+	 *
+	 * Only `mandate.created` materializes an order; other mandate events are no-ops
+	 * here. Dedupes against the order the embedded checkout (or a prior delivery)
+	 * already stamped with this mandate id, so each mandate yields exactly one order.
+	 * The product is read from the mandate metadata, which Debi propagates from the
+	 * link a hosted mandate was born from.
+	 *
+	 * @return string Result code.
+	 */
+	private static function handle_mandate_event( string $type, string $mandate_id ): string {
+		if ( 'mandate.created' !== $type ) {
+			return 'ignored';
+		}
+		if ( '' === $mandate_id ) {
+			return 'missing_mandate_id';
+		}
+
+		// Idempotency: the embedded checkout stamps MANDATE_ID synchronously, and a
+		// webhook redelivery would otherwise create a duplicate order.
+		if ( OrderLocator::find_by_mandate_id( $mandate_id ) ) {
+			return 'duplicate';
+		}
+
+		try {
+			$client = self::client();
+		} catch ( \Throwable $e ) {
+			return 'client_error';
+		}
+
+		try {
+			$mandate = $client->mandates->retrieve( $mandate_id );
+		} catch ( \Throwable $e ) {
+			self::log( 'Mandate fetch failed: ' . $e->getMessage() );
+			return 'fetch_failed';
+		}
+
+		$product_id = self::md_int( $mandate->metadata ?? null, 'product_id' );
+		if ( $product_id <= 0 ) {
+			self::log( sprintf( 'Debi mandate %s has no product metadata; ignoring.', $mandate_id ) );
+			return 'orphan_ignored';
+		}
+
+		if ( ! MandateOrderFactory::create_from_mandate( $mandate, $product_id ) ) {
+			return 'mandate_order_failed';
+		}
+
+		return 'mandate_order_created';
 	}
 
 	/**

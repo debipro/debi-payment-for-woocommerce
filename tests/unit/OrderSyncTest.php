@@ -47,6 +47,23 @@ final class OrderSyncTest extends TestCase {
 		$this->assertSame( 'ignored', $result );
 	}
 
+	public function test_non_created_mandate_event_is_ignored(): void {
+		$result = OrderSync::handle( 'EV1', 'mandate.revoked', '', '', 'MA1' );
+		$this->assertSame( 'ignored', $result );
+	}
+
+	public function test_mandate_created_without_id_is_reported(): void {
+		$result = OrderSync::handle( 'EV1', 'mandate.created', '', '', '' );
+		$this->assertSame( 'missing_mandate_id', $result );
+	}
+
+	public function test_mandate_created_reaches_client_when_unconfigured(): void {
+		// With an id and no existing order for it, it reaches for the client and
+		// fails there (no gateway settings → DebiClientFactory throws).
+		$result = OrderSync::handle( 'EV1', 'mandate.created', '', '', 'MA1' );
+		$this->assertSame( 'client_error', $result );
+	}
+
 	public function test_missing_ids_are_reported(): void {
 		$result = OrderSync::handle( 'EV1', 'payment.updated', '', '' );
 		$this->assertSame( 'missing_payment_id', $result );

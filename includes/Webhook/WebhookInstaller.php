@@ -35,6 +35,10 @@ final class WebhookInstaller {
 	 * charges, resume, cancel, finish, or any update) keeps gating correct without
 	 * waiting for the next reconcile. Over-subscribing is cheap: unhandled shapes
 	 * just trigger an idempotent re-sync.
+	 *
+	 * `mandate.created` lets the handler materialize the $0 adhesion order for a
+	 * mandate born from a hosted link (the embedded checkout already creates it
+	 * synchronously; the webhook dedupes against that same order by mandate id).
 	 */
 	public const EVENTS = array(
 		'payment.created',
@@ -51,6 +55,7 @@ final class WebhookInstaller {
 		'subscription.incomplete_expired',
 		'subscription.cancelled',
 		'subscription.finished',
+		'mandate.created',
 	);
 
 	/**

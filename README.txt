@@ -3,7 +3,7 @@ Contributors: systemdebi
 Tags: payment, gateway, debit, installments, subscriptions
 Requires at least: 6.5
 Tested up to: 7.1
-Stable tag: 1.6.0
+Stable tag: 1.7.0
 Requires PHP: 8.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -118,6 +118,9 @@ Yes! The plugin is fully translatable. Translation files can be created using th
 
 == Changelog ==
 
+= 1.7.0 =
+* Mandate (adhesion) links: a mandate created from a hosted payment link now materializes the same $0 "adhesion" order the embedded checkout produces, attributed to the product carried in the link metadata. The webhook endpoint subscribes to `mandate.created` and dedupes against the embedded order by mandate id, so each mandate yields exactly one order. Run `wp debipro setup-webhooks` after updating so existing endpoints pick up the new event
+
 = 1.6.0 =
 * Subscriptions: the "Payment method" column now reflects the instrument type — cards show network + last four + issuer bank ("Visa ···4242 · Banco Galicia"), CBU shows the bank + last four, CVU shows "CVU ···1691". The mirror now stores the card issuer (new `card_issuer` column) and reads the canonical Debi card fields (`network`, `issuer`, `last_four_digits`) and the CBU/CVU instrument objects
 
@@ -177,6 +180,9 @@ Yes! The plugin is fully translatable. Translation files can be created using th
 * Sandbox mode support
 
 == Upgrade Notice ==
+
+= 1.7.0 =
+Hosted-link mandates now create the $0 adhesion order automatically. Re-run `wp debipro setup-webhooks` so endpoints subscribe to `mandate.created`. Recommended for all users.
 
 = 1.6.0 =
 Richer payment-method display on subscriptions (card network + issuer bank, CBU, CVU). Run `wp debipro reconcile-subscriptions` to backfill existing rows. Recommended for all users.
