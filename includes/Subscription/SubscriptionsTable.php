@@ -129,6 +129,13 @@ final class SubscriptionsTable {
 			return;
 		}
 
+		// Subscriptions created without `wp_user_id` metadata (e.g. outside the store
+		// checkout) still belong to whoever owns the customer email — the same rule the
+		// inbound order factory uses, so a subscription and its orders share an owner.
+		if ( empty( $row['wp_user_id'] ) ) {
+			$row['wp_user_id'] = self::user_id_for_email( (string) ( $row['customer_email'] ?? '' ) );
+		}
+
 		$table = self::table_name();
 		$now   = gmdate( 'Y-m-d H:i:s' );
 
@@ -468,6 +475,17 @@ final class SubscriptionsTable {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * WordPress user owning an email, or 0 when the email is empty or unknown.
+	 */
+	private static function user_id_for_email( string $email ): int {
+		if ( '' === $email || ! function_exists( 'get_user_by' ) ) {
+			return 0;
+		}
+		$user = get_user_by( 'email', $email );
+		return ( is_object( $user ) && isset( $user->ID ) ) ? (int) $user->ID : 0;
 	}
 
 	/**

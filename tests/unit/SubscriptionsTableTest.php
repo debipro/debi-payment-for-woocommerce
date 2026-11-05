@@ -9,6 +9,8 @@ declare( strict_types=1 );
 
 namespace Tucuota\DebiPaymentForWooCommerce\Tests\Unit;
 
+use Brain\Monkey;
+use Brain\Monkey\Functions;
 use Debi\DebiObject;
 use Debi\Resource\Subscription;
 use DebiPro\Subscription\SubscriptionsTable;
@@ -19,8 +21,14 @@ use PHPUnit\Framework\TestCase;
  */
 final class SubscriptionsTableTest extends TestCase {
 
+	protected function setUp(): void {
+		parent::setUp();
+		Monkey\setUp();
+	}
+
 	protected function tearDown(): void {
 		unset( $GLOBALS['wpdb'] );
+		Monkey\tearDown();
 		parent::tearDown();
 	}
 
@@ -199,6 +207,63 @@ final class SubscriptionsTableTest extends TestCase {
 		$this->assertArrayHasKey( 'updated_at', $data );
 		// product_id 0 must not overwrite the value learned at checkout.
 		$this->assertArrayNotHasKey( 'product_id', $data );
+	}
+
+	public function test_upsert_links_user_by_customer_email_when_metadata_has_none(): void {
+		Functions\expect( 'get_user_by' )
+			->once()
+			->with( 'email', 'jane@example.test' )
+			->andReturn( (object) array( 'ID' => 42 ) );
+
+		$wpdb            = $this->fake_wpdb();
+		$GLOBALS['wpdb'] = $wpdb; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Test double.
+
+		SubscriptionsTable::upsert(
+			array(
+				'subscription_id' => 'SB1',
+				'product_id'      => 7,
+				'wp_user_id'      => 0,
+				'customer_email'  => 'jane@example.test',
+				'status'          => 'active',
+			)
+		);
+
+		$this->assertSame( 42, $wpdb->inserted[0]['wp_user_id'] );
+	}
+
+	public function test_upsert_backfills_user_on_refresh_of_unlinked_row(): void {
+		Functions\when( 'get_user_by' )->justReturn( (object) array( 'ID' => 42 ) );
+
+		$wpdb = $this->fake_wpdb();
+		$wpdb->seed( 'SB1' );
+		$GLOBALS['wpdb'] = $wpdb; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Test double.
+
+		SubscriptionsTable::upsert(
+			array(
+				'subscription_id' => 'SB1',
+				'customer_email'  => 'jane@example.test',
+				'status'          => 'active',
+			)
+		);
+
+		$this->assertSame( 42, $wpdb->updated[0][0]['wp_user_id'] );
+	}
+
+	public function test_upsert_keeps_user_unlinked_when_email_matches_nobody(): void {
+		Functions\when( 'get_user_by' )->justReturn( false );
+
+		$wpdb            = $this->fake_wpdb();
+		$GLOBALS['wpdb'] = $wpdb; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Test double.
+
+		SubscriptionsTable::upsert(
+			array(
+				'subscription_id' => 'SB1',
+				'customer_email'  => 'nobody@example.test',
+				'status'          => 'active',
+			)
+		);
+
+		$this->assertSame( 0, $wpdb->inserted[0]['wp_user_id'] );
 	}
 
 	public function test_upsert_ignores_empty_id(): void {
