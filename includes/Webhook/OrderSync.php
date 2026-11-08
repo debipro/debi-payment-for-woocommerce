@@ -105,6 +105,18 @@ final class OrderSync {
 			$payment_id = (string) $snapshot['payment']->id;
 		}
 
+		// A charge stamped for another site of a shared Debi account is that site's: it must
+		// not reach this site's orders, not even the checkout order a re-attributed
+		// subscription was born from.
+		$stamped_blog_id = BlogOwnership::stamped_blog_id(
+			$snapshot['subscription']->metadata ?? null,
+			$snapshot['payment']->metadata ?? null
+		);
+		if ( BlogOwnership::is_foreign( $stamped_blog_id, BlogOwnership::current_blog_id() ) ) {
+			self::sync_subscription_table( $snapshot['subscription'] );
+			return 'other_blog';
+		}
+
 		// 1. Embedded / already-correlated checkout plan (order carries the sub id).
 		$checkout = '' !== $subscription_id
 			? OrderLocator::find_checkout_by_subscription( $subscription_id )
@@ -453,6 +465,10 @@ final class OrderSync {
 			return 'fetch_failed';
 		}
 
+		if ( BlogOwnership::is_foreign( BlogOwnership::stamped_blog_id( $mandate->metadata ?? null ), BlogOwnership::current_blog_id() ) ) {
+			return 'other_blog';
+		}
+
 		$product_id = self::md_int( $mandate->metadata ?? null, 'product_id' );
 		if ( $product_id <= 0 ) {
 			self::log( sprintf( 'Debi mandate %s has no product metadata; ignoring.', $mandate_id ) );
@@ -507,6 +523,16 @@ final class OrderSync {
 		// not as subscriptions in this table.
 		$count = $subscription->count ?? null;
 		if ( null !== $count && (int) $count > 0 ) {
+			return;
+		}
+		// Another site's subscription (shared Debi account) does not belong in this mirror;
+		// one re-attributed away from this site leaves it.
+		if ( BlogOwnership::is_foreign( BlogOwnership::stamped_blog_id( $subscription->metadata ?? null ), BlogOwnership::current_blog_id() ) ) {
+			try {
+				SubscriptionsTable::delete( (string) ( $subscription->id ?? '' ) );
+			} catch ( \Throwable $e ) {
+				self::log( 'Subscriptions table delete failed: ' . $e->getMessage() );
+			}
 			return;
 		}
 		try {

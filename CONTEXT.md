@@ -24,6 +24,10 @@ _Avoid_: Debi payment status, rejected (as an order-level label)
 How the Debi↔order link was born: `installment_plan` (checkout), `debi_subscription_payment`, or `debi_one_off_payment`.
 _Avoid_: type, kind, source (unqualified)
 
+**Owning site** (`metadata.blog_id`):
+The site of a multisite network a Debi resource belongs to. Sites sharing one Debi account all receive its webhooks; a payment, mandate or subscription stamped for another site never creates or updates orders here and is dropped from this site's subscriptions mirror (e.g. after it is re-attributed to another site). Unstamped resources keep the default behavior.
+_Avoid_: tenant, store id
+
 **External settlement**:
 An admin-recorded payment outside Debi that increases paid amount on a (possibly cancelled) checkout order so it can reach `completed`.
 _Avoid_: manual capture, offline payment (unqualified)

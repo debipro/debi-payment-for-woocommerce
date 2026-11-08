@@ -207,6 +207,22 @@ final class SubscriptionsTable {
 	}
 
 	/**
+	 * Remove a subscription from this site's mirror (e.g. it now belongs to another site of
+	 * a shared Debi account). No-op when the row does not exist.
+	 */
+	public static function delete( string $subscription_id ): void {
+		global $wpdb;
+
+		if ( '' === $subscription_id ) {
+			return;
+		}
+		$deleted = $wpdb->delete( self::table_name(), array( 'subscription_id' => $subscription_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		if ( $deleted ) {
+			self::log( sprintf( 'Subscription %s removed from the mirror: it belongs to another site', $subscription_id ) );
+		}
+	}
+
+	/**
 	 * Info-level log to the shared `debipro` WooCommerce log source. Best-effort:
 	 * silently a no-op when WooCommerce's logger is unavailable.
 	 */
