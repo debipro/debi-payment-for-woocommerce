@@ -518,11 +518,12 @@ final class OrderSync {
 		if ( ! $subscription instanceof \Debi\Resource\Subscription ) {
 			return;
 		}
-		// Only mirror open-ended recurring subscriptions (memberships). Finite
-		// installment plans carry a `count` and are tracked as checkout-plan orders,
-		// not as subscriptions in this table.
+		// Checkout installment plans carry a `count` and no product metadata; they are
+		// tracked as checkout-plan orders, not in this table. A fixed-count subscription
+		// stamped with a product (e.g. a yearly fee created in Debi and then attributed)
+		// is mirrored like a membership.
 		$count = $subscription->count ?? null;
-		if ( null !== $count && (int) $count > 0 ) {
+		if ( null !== $count && (int) $count > 0 && self::md_int( $subscription->metadata ?? null, 'product_id' ) <= 0 ) {
 			return;
 		}
 		// Another site's subscription (shared Debi account) does not belong in this mirror;
