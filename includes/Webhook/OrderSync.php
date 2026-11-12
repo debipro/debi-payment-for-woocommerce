@@ -117,6 +117,25 @@ final class OrderSync {
 			return 'other_blog';
 		}
 
+		// Locating an order and creating it when missing is a check-then-act: two
+		// deliveries of one payment (payment.created + payment.updated, or retries)
+		// would both miss and both create an inbound order. Serialize per site.
+		$routed = SyncLock::for_current_blog()->run(
+			static function () use ( $event_id, $type, $payment_id, $subscription_id, $snapshot ): string {
+				return self::route_payment( $event_id, $type, $payment_id, $subscription_id, $snapshot );
+			}
+		);
+		return null === $routed ? 'busy' : $routed;
+	}
+
+	/**
+	 * Find (or create) the order a payment belongs to and project onto it. Must run
+	 * under {@see SyncLock}.
+	 *
+	 * @param array<string,mixed> $snapshot {@see DebiSnapshotFetcher::for_payment()}.
+	 * @return string Result code.
+	 */
+	private static function route_payment( string $event_id, string $type, string $payment_id, string $subscription_id, array $snapshot ): string {
 		// 1. Embedded / already-correlated checkout plan (order carries the sub id).
 		$checkout = '' !== $subscription_id
 			? OrderLocator::find_checkout_by_subscription( $subscription_id )

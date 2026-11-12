@@ -74,6 +74,12 @@ final class WebhookController {
 			$ids['mandate_id']
 		);
 
+		// Another delivery held the routing lock past its timeout: ask Debi to retry
+		// later instead of acknowledging an event that was never applied.
+		if ( 'busy' === $result ) {
+			return new \WP_REST_Response( array( 'error' => 'busy' ), 503 );
+		}
+
 		/**
 		 * Fires after a signature-verified Debi webhook has been processed.
 		 *
